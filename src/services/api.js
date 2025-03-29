@@ -1,9 +1,8 @@
-// src/services/api.js
+import { trackedContracts } from '../config/contracts';
 import axios from 'axios';
 
-// API base URL - change this to your deployed API URL in production
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://pagedao-hub-serverless-api.netlify.app/api';
-
+// API base URL - from environment variable
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8888/api';
 
 // Create axios instance with default config
 const api = axios.create({
@@ -14,7 +13,53 @@ const api = axios.create({
   },
 });
 
-// Token prices API
+// Collections API
+export const fetchCollections = async (chain = 'all', limit = 12) => {
+  try {
+    console.log(`Making API request to ${API_BASE_URL}/collections with params:`, { chain, limit });
+    
+    const response = await api.get('/collections', {
+      params: { chain, limit }
+    });
+    
+    console.log('Raw API response:', response);
+    
+    // Check if the response has the expected structure
+    if (!response.data || !response.data.data) {
+      console.warn('API response is missing expected data structure:', response);
+      return { data: { items: [] } };
+    }
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error details:', error.response || error);
+    throw error;
+  }
+};
+
+export const fetchCollectionDetail = async (address, chain = 'all') => {
+  try {
+    const collectionResponse = await api.get(`/collections/${address}`, {
+      params: { chain }
+    });
+    
+    const itemsResponse = await api.get(`/collections/${address}/items`, {
+      params: { chain, limit: 20 }
+    });
+    
+    return {
+      data: {
+        collection: collectionResponse.data.data,
+        items: itemsResponse.data.data.items
+      }
+    };
+  } catch (error) {
+    console.error('Error fetching collection detail:', error);
+    throw error;
+  }
+};
+
+// Token prices API - keep existing functions
 export const fetchTokenPrices = async () => {
   try {
     const response = await api.get('/token-prices');
@@ -45,6 +90,35 @@ export const fetchNetworkComparison = async () => {
     return response.data;
   } catch (error) {
     console.error('Error fetching network comparison:', error);
+    throw error;
+  }
+};
+
+// NFT tracking API
+export const initializeTracking = async () => {
+  try {
+    // For each tracked contract, call the API to register it for tracking
+    const results = await Promise.all(
+      trackedContracts.map(async (contract) => {
+        // This should match your API endpoint for registering collections
+        const response = await api.post('/collections/register', {
+          chain: contract.chain,
+          address: contract.address,
+          type: contract.type,
+          name: contract.name
+        });
+        
+        return {
+          ...contract,
+          result: response.data
+        };
+      })
+    );
+    
+    console.log('Initialized tracking for contracts:', results);
+    return results;
+  } catch (error) {
+    console.error('Error initializing tracking for contracts:', error);
     throw error;
   }
 };
