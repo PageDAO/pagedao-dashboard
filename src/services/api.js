@@ -1,4 +1,4 @@
-import { trackedContracts } from '../config/contracts';
+import { getContractByAddress, getContracts } from '../contracts/registry';
 import axios from 'axios';
 
 // API base URL - from environment variable
@@ -16,10 +16,26 @@ const api = axios.create({
 // Collections API
 export const fetchCollections = async (chain = 'all', limit = 12) => {
   try {
-    console.log(`Making API request to ${API_BASE_URL}/collections with params:`, { chain, limit });
+    // Get contracts from registry
+    const contracts = getContracts(chain);
+    
+    if (contracts.length === 0) {
+      console.warn(`No contracts found for chain: ${chain}`);
+      return { data: { items: [] } };
+    }
+    
+    // Extract addresses and chains
+    const addresses = contracts.map(c => c.address);
+    const chains = contracts.map(c => c.chain);
+    
+    console.log(`Making API request to ${API_BASE_URL}/collections with addresses:`, addresses);
     
     const response = await api.get('/collections', {
-      params: { chain, limit }
+      params: { 
+        addresses: addresses.join(','),
+        chains: chains.join(','),
+        limit 
+      }
     });
     
     console.log('Raw API response:', response);
@@ -37,8 +53,18 @@ export const fetchCollections = async (chain = 'all', limit = 12) => {
   }
 };
 
-export const fetchCollectionDetail = async (address, chain = 'all') => {
+export const fetchCollectionDetail = async (address, chain) => {
   try {
+    // If chain is not provided, try to find it in the registry
+    if (!chain) {
+      const contract = getContractByAddress(address);
+      if (contract) {
+        chain = contract.chain;
+      } else {
+        chain = 'ethereum'; // Default to ethereum if not found
+      }
+    }
+    
     const collectionResponse = await api.get(`/collections/${address}`, {
       params: { chain }
     });
@@ -55,6 +81,74 @@ export const fetchCollectionDetail = async (address, chain = 'all') => {
     };
   } catch (error) {
     console.error('Error fetching collection detail:', error);
+    throw error;
+  }
+};
+
+// Books API functions
+export const fetchBooks = async (limit = 12) => {
+  try {
+    // Get book contracts from registry
+    const bookContracts = getContracts('all').filter(c => 
+      c.type === 'book' || 
+      c.type === 'alexandria_book' || 
+      c.type === 'polygon_book'
+    );
+    
+    if (bookContracts.length === 0) {
+      console.warn('No book contracts found in registry');
+      return { data: { items: [] } };
+    }
+    
+    // Extract addresses and chains
+    const addresses = bookContracts.map(c => c.address);
+    const chains = bookContracts.map(c => c.chain);
+    
+    const response = await api.get('/books', {
+      params: { 
+        addresses: addresses.join(','),
+        chains: chains.join(','),
+        limit 
+      }
+    });
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching books:', error);
+    throw error;
+  }
+};
+
+export const fetchFeaturedBooks = async (limit = 4) => {
+  try {
+    // Get featured book contracts (you could add a featured flag in your registry)
+    // For now, just using the first few book contracts
+    const bookContracts = getContracts('all').filter(c => 
+      c.type === 'book' || 
+      c.type === 'alexandria_book' || 
+      c.type === 'polygon_book'
+    ).slice(0, limit);
+    
+    if (bookContracts.length === 0) {
+      console.warn('No featured book contracts found in registry');
+      return { data: { items: [] } };
+    }
+    
+    // Extract addresses and chains
+    const addresses = bookContracts.map(c => c.address);
+    const chains = bookContracts.map(c => c.chain);
+    
+    const response = await api.get('/books/featured', {
+      params: { 
+        featuredAddresses: addresses.join(','),
+        chains: chains.join(','),
+        limit 
+      }
+    });
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching featured books:', error);
     throw error;
   }
 };
@@ -94,12 +188,15 @@ export const fetchNetworkComparison = async () => {
   }
 };
 
-// NFT tracking API
+// NFT tracking API - modified to use registry
 export const initializeTracking = async () => {
   try {
-    // For each tracked contract, call the API to register it for tracking
+    // Get all contracts from registry
+    const allContracts = getContracts('all');
+    
+    // For each contract in the registry, call the API to register it for tracking
     const results = await Promise.all(
-      trackedContracts.map(async (contract) => {
+      allContracts.map(async (contract) => {
         // This should match your API endpoint for registering collections
         const response = await api.post('/collections/register', {
           chain: contract.chain,

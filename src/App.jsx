@@ -10,6 +10,8 @@ import TVLAnalytics from './pages/TVLAnalytics';
 import NetworkComparison from './pages/NetworkComparison';
 import Collections from './pages/Collections';
 import CollectionDetail from './pages/CollectionDetail';
+import RegistryManager from './components/RegistryManager';
+
 
 function App() {
   useEffect(() => {
@@ -38,6 +40,7 @@ function App() {
               <Route path="/networks" element={<NetworkComparison />} />
               <Route path="/tvl" element={<TVLAnalytics />} />
               <Route path="/collections" element={<Collections />} />
+              <Route path="/registry" element={<RegistryManager />} />
               <Route path="/collections/:address" element={<CollectionDetail />} />
             </Routes>
           </main>
