@@ -17,12 +17,18 @@ function NFTCard({ collection }) {
   
   // Get collection type based on type or chain
   const getCollectionType = () => {
+    if (!collection) return 'NFT Collection';
     if (collection.type === 'alexandria_book' || collection.chain === 'base') return 'Alexandria Book';
     if (collection.type === 'mirror_publication') return 'Mirror Publication';
     if (collection.type === 'zora_nft' || collection.chain === 'zora') return 'Zora NFT';
     if (collection.type === 'readme_book' || collection.chain === 'polygon') return 'Readme Book';
     return 'NFT Collection';
   };
+  
+  // Handle when collection data is incomplete
+  if (!collection) {
+    return null;
+  }
   
   return (
     <Link 
@@ -32,8 +38,11 @@ function NFTCard({ collection }) {
       <div className="relative">
         <img 
           src={collection.imageURI || '/images/placeholder-cover.png'} 
-          alt={collection.name} 
+          alt={collection.name || 'Unknown Collection'} 
           className="w-full h-48 object-cover"
+          onError={(e) => {
+            e.target.src = '/images/placeholder-cover.png';
+          }}
         />
         <div 
           className="absolute top-3 right-3 px-2 py-1 text-xs font-semibold rounded text-white"
@@ -48,7 +57,7 @@ function NFTCard({ collection }) {
           {getCollectionType()}
         </div>
         <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-1 truncate">
-          {collection.name}
+          {collection.name || 'Unnamed Collection'}
         </h3>
         <p className="text-gray-600 dark:text-gray-300 text-sm h-10 overflow-hidden">
           {collection.description?.substring(0, 60)}
@@ -57,7 +66,7 @@ function NFTCard({ collection }) {
         
         <div className="flex justify-between items-center mt-3">
           <div className="text-xs text-gray-500 dark:text-gray-400">
-            {collection.totalSupply ? `${collection.totalSupply} items` : '\u00A0'}
+          {collection.totalSupply ? `${collection.totalSupply} items` : '\u00A0'}
           </div>
           <div className="flex items-center">
             <span className="text-xs mr-1">View</span>

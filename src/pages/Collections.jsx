@@ -1,8 +1,9 @@
-// Updated Collections.jsx to include debug information
+// Updated Collections.jsx to work with the new API
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchCollections } from '../services/api';
 import { trackedContracts } from '../config/contracts';
+import NFTCard from '../components/nft/NFTCard';
 
 function Collections() {
   const [collections, setCollections] = useState([]);
@@ -118,9 +119,8 @@ function Collections() {
           <div className="mt-6">
             <p>If collections don't appear after a while, try checking:</p>
             <ul className="list-disc pl-5 mt-2">
-              <li>API is running and accessible at: {import.meta.env.VITE_API_URL || 'http://localhost:8888/api'}</li>
-              <li>The collections endpoint is working: <code>/collections</code></li>
-              <li>Registration endpoint is working: <code>/collections/register</code></li>
+              <li>API is running and accessible at: {import.meta.env.VITE_API_URL || 'https://pagedao-hub-serverless-api.netlify.app'}</li>
+              <li>The NFT endpoint is working: <code>/.netlify/functions/nft</code></li>
               <li>Blockchain RPC connections are functioning</li>
             </ul>
           </div>
@@ -130,67 +130,10 @@ function Collections() {
       {collections.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {collections.map((collection) => (
-            <Link 
+            <NFTCard 
               key={`${collection.chain}-${collection.contractAddress}`}
-              to={`/collections/${collection.contractAddress}?chain=${collection.chain}`}
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition duration-300"
-            >
-              <div className="relative">
-                <img 
-                  src={collection.imageURI} 
-                  alt={collection.name} 
-                  className="w-full h-48 object-cover"
-                  onError={(e) => {
-                    // Use a data URL for a colored placeholder
-                    const colors = {
-                      'base': '#0052FF',
-                      'ethereum': '#6F7CBA',
-                      'polygon': '#8247E5',
-                      'zora': '#5E12A0',
-                      'optimism': '#FF0420'
-                    };
-                    const bgColor = colors[collection.chain] || '#4dabf7';
-                    e.target.src = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200' width='200' height='200'%3E%3Crect width='200' height='200' fill='${bgColor.replace('#', '%23')}'/%3E%3Ctext x='50%25' y='50%25' font-family='Arial' font-size='20' fill='white' text-anchor='middle' dominant-baseline='middle'%3E${collection.name.substring(0, 10)}%3C/text%3E%3C/svg%3E`;
-                  }}
-                />
-                <div 
-                  className="absolute top-3 right-3 px-2 py-1 text-xs font-semibold rounded text-white"
-                  style={{ 
-                    backgroundColor: chains.find(c => c.id === collection.chain)?.color || '#4dabf7'
-                  }}
-                >
-                  {collection.chain.charAt(0).toUpperCase() + collection.chain.slice(1)}
-                </div>
-              </div>
-              
-              <div className="p-4">
-                <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                  {collection.type === 'alexandria_book' ? 'Alexandria Book' :
-                   collection.type === 'mirror_publication' ? 'Mirror Publication' :
-                   collection.type === 'zora_nft' ? 'Zora NFT' :
-                   collection.type === 'readme_book' ? 'Readme Book' : 'NFT Collection'}
-                </div>
-                <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-1 truncate">
-                  {collection.name}
-                </h3>
-                <p className="text-gray-600 dark:text-gray-300 text-sm h-10 overflow-hidden">
-                  {collection.description?.substring(0, 60)}
-                  {collection.description?.length > 60 ? '...' : ''}
-                </p>
-                
-                <div className="flex justify-between items-center mt-3">
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    {collection.totalSupply ? `${collection.totalSupply} items` : '\u00A0'}
-                  </div>
-                  <div className="flex items-center text-blue-500">
-                    <span className="text-xs mr-1">View</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </Link>
+              collection={collection}
+            />
           ))}
         </div>
       )}

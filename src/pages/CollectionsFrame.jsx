@@ -1,6 +1,6 @@
-// src/pages/frames/CollectionsFrame.jsx
+// src/pages/CollectionsFrame.jsx - Updated for new API
 import React, { useState, useEffect } from 'react';
-import { fetchCollections } from '../../services/api';
+import { fetchCollections } from '../services/api';
 
 function CollectionsFrame() {
   const [collections, setCollections] = useState([]);
@@ -17,7 +17,7 @@ function CollectionsFrame() {
       try {
         setLoading(true);
         const response = await fetchCollections(chain, 20); // Fetch 20 collections max
-        setCollections(response.data.items);
+        setCollections(response.data.items || []);
         setLoading(false);
       } catch (err) {
         console.error('Error fetching collections:', err);
@@ -68,7 +68,7 @@ function CollectionsFrame() {
     return (
       <>
         <meta property="fc:frame" content="vNext" />
-        <meta property="fc:frame:image" content="https://pagedao-hub.netlify.app/api/frames/collections?chain=${chain}&page=${page}" />
+        <meta property="fc:frame:image" content={`https://pagedao-hub.netlify.app/api/frames/collections?chain=${chain}&page=${page}`} />
         <meta property="fc:frame:button:1" content={hasPrevPage ? "Previous" : "⬅️"} />
         <meta property="fc:frame:button:2" content={`Chain: ${chain}`} />
         <meta property="fc:frame:button:3" content={hasNextPage ? "Next" : "➡️"} />
@@ -112,41 +112,50 @@ function CollectionsFrame() {
           </span>
         </h2>
         <div className="text-sm text-gray-500">
-          Page {page + 1} of {totalPages}
+          Page {page + 1} of {totalPages || 1}
         </div>
       </div>
       
       <div className="grid grid-cols-2 gap-4">
-        {currentItems.map((collection) => (
-          <div 
-            key={`${collection.chain}-${collection.contractAddress}`}
-            className="bg-white rounded-lg shadow-md overflow-hidden"
-          >
-            <div className="relative h-24">
-              <img 
-                src={collection.imageURI || '/images/placeholder-cover.png'} 
-                alt={collection.name} 
-                className="w-full h-full object-cover"
-              />
-              <div 
-                className="absolute top-1 right-1 px-1 py-0.5 text-xs font-semibold rounded text-white"
-                style={{ backgroundColor: getChainColor(collection.chain) }}
-              >
-                {collection.chain.charAt(0).toUpperCase() + collection.chain.slice(1)}
+        {currentItems.length > 0 ? (
+          currentItems.map((collection) => (
+            <div 
+              key={`${collection.chain}-${collection.contractAddress}`}
+              className="bg-white rounded-lg shadow-md overflow-hidden"
+            >
+              <div className="relative h-24">
+                <img 
+                  src={collection.imageURI || '/images/placeholder-cover.png'} 
+                  alt={collection.name || 'Unnamed Collection'} 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.src = '/images/placeholder-cover.png';
+                  }}
+                />
+                <div 
+                  className="absolute top-1 right-1 px-1 py-0.5 text-xs font-semibold rounded text-white"
+                  style={{ backgroundColor: getChainColor(collection.chain) }}
+                >
+                  {collection.chain.charAt(0).toUpperCase() + collection.chain.slice(1)}
+                </div>
+              </div>
+              
+              <div className="p-2">
+                <h3 className="text-sm font-semibold truncate">
+                  {collection.name || 'Unnamed Collection'}
+                </h3>
+                <div className="text-xs text-gray-500 h-8 overflow-hidden">
+                  {collection.description?.substring(0, 40)}
+                  {collection.description?.length > 40 ? '...' : ''}
+                </div>
               </div>
             </div>
-            
-            <div className="p-2">
-              <h3 className="text-sm font-semibold truncate">
-                {collection.name}
-              </h3>
-              <div className="text-xs text-gray-500 h-8 overflow-hidden">
-                {collection.description?.substring(0, 40)}
-                {collection.description?.length > 40 ? '...' : ''}
-              </div>
-            </div>
+          ))
+        ) : (
+          <div className="col-span-2 text-center py-4 text-gray-500">
+            No collections found for this chain
           </div>
-        ))}
+        )}
       </div>
       
       <div className="flex justify-between mt-4 text-xs">

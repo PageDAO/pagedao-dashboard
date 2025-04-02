@@ -1,4 +1,4 @@
-// src/pages/CollectionDetail.jsx
+// src/pages/CollectionDetail.jsx - Updated for new API
 import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { fetchCollectionDetail } from '../services/api';
@@ -18,6 +18,10 @@ function CollectionDetail() {
       try {
         setLoading(true);
         const response = await fetchCollectionDetail(address, chain);
+        
+        // Log for debugging
+        console.log('Collection detail response:', response);
+        
         setCollection(response.data.collection);
         setItems(response.data.items || []);
         setLoading(false);
@@ -120,7 +124,7 @@ function CollectionDetail() {
             
             <div className="mb-6">
               <p className="text-gray-600 dark:text-gray-300">
-                {collection.description}
+                {collection.description || 'No description available.'}
               </p>
             </div>
             
@@ -158,7 +162,7 @@ function CollectionDetail() {
             </div>
             
             <div className="mb-4">
-              <h3 className="text-lg font-semibold mb-2">Contract Information</h3>
+            <h3 className="text-lg font-semibold mb-2">Contract Information</h3>
               <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded font-mono text-sm break-all">
                 {collection.contractAddress}
               </div>
@@ -183,7 +187,7 @@ function CollectionDetail() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {items.map((item) => (
             <div 
-              key={item.id} 
+              key={item.id || item.tokenId} 
               className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden"
             >
               <img 
@@ -225,6 +229,10 @@ function CollectionDetail() {
           ))}
         </div>
       )}
+      
+      <div className="mt-8 text-center text-gray-500 text-sm">
+        <p>Using PageDAO API to fetch on-chain NFT data</p>
+      </div>
     </div>
   );
 }
