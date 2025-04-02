@@ -1,4 +1,4 @@
-// src/App.jsx
+// Inside src/App.jsx - update the Routes section
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { initializeTracking } from './services/api';
@@ -10,7 +10,9 @@ import TVLAnalytics from './pages/TVLAnalytics';
 import NetworkComparison from './pages/NetworkComparison';
 import Collections from './pages/Collections';
 import CollectionDetail from './pages/CollectionDetail';
+import ChainCollections from './pages/ChainCollections'; 
 import RegistryManager from './components/RegistryManager';
+import BookDetail from './pages/BookDetail';
 
 
 function App() {
@@ -40,8 +42,11 @@ function App() {
               <Route path="/networks" element={<NetworkComparison />} />
               <Route path="/tvl" element={<TVLAnalytics />} />
               <Route path="/collections" element={<Collections />} />
-              <Route path="/registry" element={<RegistryManager />} />
+              <Route path="/collections/chain/:chainId" element={<ChainCollections />} /> {/* New route */}
               <Route path="/collections/:address" element={<CollectionDetail />} />
+              {/* Add new route for book detail */}
+              <Route path="/collections/:address/book/:tokenId" element={<BookDetail />} />
+              <Route path="/registry" element={<RegistryManager />} />
             </Routes>
           </main>
         </div>

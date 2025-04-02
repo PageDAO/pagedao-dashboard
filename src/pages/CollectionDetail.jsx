@@ -13,29 +13,41 @@ function CollectionDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const response = await fetchCollectionDetail(address, chain);
-        
+
+useEffect(() => {
+  let isMounted = true;
+  
+  const fetchData = async () => {
+    if (!isMounted) return;
+    
+    try {
+      setLoading(true);
+      const response = await fetchCollectionDetail(address, chain);
+      
+      if (isMounted) {
         // Log for debugging
         console.log('Collection detail response:', response);
         
         setCollection(response.data.collection);
         setItems(response.data.items || []);
         setLoading(false);
-      } catch (err) {
+      }
+    } catch (err) {
+      if (isMounted) {
         console.error('Error fetching collection detail:', err);
         setError(err.message || 'Failed to fetch collection');
         setLoading(false);
       }
-    };
-    
-    fetchData();
-  }, [address, chain]);
+    }
+  };
   
-  // Chain-specific styling
+  fetchData();
+  
+  return () => {
+    isMounted = false;
+  };
+}, [address, chain]); 
+  
   const getChainColor = (chainName) => {
     const colors = {
       ethereum: '#6F7CBA',
@@ -47,7 +59,6 @@ function CollectionDetail() {
     return colors[chainName] || '#4dabf7';
   };
   
-  // Get collection type based on type or chain
   const getCollectionType = () => {
     if (!collection) return '';
     if (collection.type === 'alexandria_book' || collection.chain === 'base') return 'Alexandria Book';
@@ -93,88 +104,64 @@ function CollectionDetail() {
         </Link>
       </div>
       
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
-        <div className="flex flex-col md:flex-row">
-          <div className="md:w-1/3 mb-6 md:mb-0 md:pr-6">
-            <img 
-              src={collection.imageURI || '/images/placeholder-cover.png'} 
-              alt={collection.name} 
-              className="w-full h-auto rounded-lg shadow-md"
-              onError={(e) => {
-                e.target.src = '/images/placeholder-cover.png';
-              }}
-            />
-          </div>
-          
-          <div className="md:w-2/3">
-            <div className="flex flex-wrap items-center mb-4">
-              <h1 className="text-3xl font-bold text-gray-800 dark:text-white mr-3">
-                {collection.name}
-              </h1>
-              <span 
-                className="px-2 py-1 text-xs font-semibold rounded text-white"
-                style={{ backgroundColor: getChainColor(collection.chain) }}
-              >
-                {collection.chain.charAt(0).toUpperCase() + collection.chain.slice(1)}
-              </span>
-              <span className="ml-3 text-sm text-gray-500 dark:text-gray-400">
-                {getCollectionType()}
-              </span>
-            </div>
-            
-            <div className="mb-6">
-              <p className="text-gray-600 dark:text-gray-300">
-                {collection.description || 'No description available.'}
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">
+          Publication Details
+        </h2>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {collection.creator && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Creator</h3>
+              <p className="text-gray-800 dark:text-white break-all">
+                {collection.creator}
               </p>
             </div>
-            
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-              <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg">
-                <div className="text-sm text-gray-500 dark:text-gray-400">
-                  Total Supply
-                </div>
-                <div className="text-xl font-semibold">
-                  {collection.totalSupply || 'Unknown'}
-                </div>
-              </div>
-              
-              {collection.maxSupply && (
-                <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg">
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                    Max Supply
-                  </div>
-                  <div className="text-xl font-semibold">
-                    {collection.maxSupply}
-                  </div>
-                </div>
-              )}
-              
-              <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg">
-                <div className="text-sm text-gray-500 dark:text-gray-400">
-                  Creator
-                </div>
-                <div className="text-xl font-semibold truncate">
-                  {collection.creator 
-                    ? `${collection.creator.substring(0, 6)}...${collection.creator.substring(collection.creator.length - 4)}`
-                    : 'Unknown'}
-                </div>
-              </div>
+          )}
+          
+          {collection.format && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Format</h3>
+              <p className="text-gray-800 dark:text-white">{collection.format}</p>
             </div>
-            
-            <div className="mb-4">
-            <h3 className="text-lg font-semibold mb-2">Contract Information</h3>
-              <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded font-mono text-sm break-all">
-                {collection.contractAddress}
-              </div>
+          )}
+          
+          {collection.totalSupply !== undefined && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Supply</h3>
+              <p className="text-gray-800 dark:text-white">{collection.totalSupply}</p>
             </div>
-            
-            {collection.symbol && (
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                Symbol: {collection.symbol}
-              </div>
-            )}
-          </div>
+          )}
+          
+          {collection.additionalData?.publisher && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Publisher</h3>
+              <p className="text-gray-800 dark:text-white">{collection.additionalData.publisher}</p>
+            </div>
+          )}
+          
+          {collection.additionalData?.author && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Author</h3>
+              <p className="text-gray-800 dark:text-white">{collection.additionalData.author}</p>
+            </div>
+          )}
+          
+          {/* Add more fields based on what's available in additionalData */}
         </div>
+        
+        {collection.contentURI && (
+          <div className="mt-6">
+            <a 
+              href={collection.contentURI}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              View Content
+            </a>
+          </div>
+        )}
       </div>
       
       <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">Collection Items</h2>

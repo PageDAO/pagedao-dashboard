@@ -1,4 +1,4 @@
-// src/components/common/Sidebar.jsx
+// src/components/common/Sidebar.jsx - Updated structure
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
@@ -47,7 +47,7 @@ function Sidebar() {
       >
         <div className="p-6">
           <h2 className="text-2xl font-bold">PageDAO Hub</h2>
-          <p className="text-gray-400 text-sm mt-1">Token Analytics Dashboard</p>
+          <p className="text-gray-400 text-sm mt-1">Digital Publishing Dashboard</p>
         </div>
         
         <nav className="mt-6">
@@ -70,30 +70,15 @@ function Sidebar() {
               </NavLink>
             </li>
             
-            {/* Main Dashboard */}
-            <li>
-              <NavLink 
-                to="/" 
-                className={({ isActive }) => 
-                  `flex items-center py-3 px-6 hover:bg-gray-700 ${isActive ? 'bg-gray-700' : ''}`
-                }
-                onClick={() => setIsMobileMenuOpen(false)}
-                end
-              >
-                <span className="mr-3">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-                  </svg>
-                </span>
-                Dashboard
-              </NavLink>
-            </li>
-            
-            {/* Collapsible Token Menu */}
+            {/* Collapsible Token Menu - Now includes Dashboard, TVL, and Network Comparison */}
             <li>
               <button 
                 className={`w-full flex items-center justify-between py-3 px-6 hover:bg-gray-700 ${
-                  window.location.pathname.includes('/token/') ? 'bg-gray-700' : ''
+                  window.location.pathname === '/' || 
+                  window.location.pathname.includes('/token/') || 
+                  window.location.pathname === '/tvl' || 
+                  window.location.pathname === '/networks' 
+                    ? 'bg-gray-700' : ''
                 }`}
                 onClick={toggleTokenSubmenu}
               >
@@ -112,8 +97,49 @@ function Sidebar() {
                 )}
               </button>
               
-              {/* Submenu for tokens */}
+              {/* Expanded submenu for tokens - Now includes Dashboard, TVL, and Network Comparison */}
               <div className={`pl-6 ${isTokenSubmenuOpen ? 'block' : 'hidden'}`}>
+                {/* Main Dashboard */}
+                <NavLink 
+                  to="/" 
+                  className={({ isActive }) => 
+                    `flex items-center py-2 px-6 hover:bg-gray-700 ${isActive ? 'bg-gray-700' : ''}`
+                  }
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  end
+                >
+                  <span className="w-2 h-2 rounded-full bg-blue-400 mr-3"></span>
+                  Dashboard
+                </NavLink>
+                
+                {/* TVL Analytics */}
+                <NavLink 
+                  to="/tvl" 
+                  className={({ isActive }) => 
+                    `flex items-center py-2 px-6 hover:bg-gray-700 ${isActive ? 'bg-gray-700' : ''}`
+                  }
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <span className="w-2 h-2 rounded-full bg-green-400 mr-3"></span>
+                  TVL Analytics
+                </NavLink>
+                
+                {/* Network Comparison */}
+                <NavLink 
+                  to="/networks" 
+                  className={({ isActive }) => 
+                    `flex items-center py-2 px-6 hover:bg-gray-700 ${isActive ? 'bg-gray-700' : ''}`
+                  }
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <span className="w-2 h-2 rounded-full bg-purple-400 mr-3"></span>
+                  Network Comparison
+                </NavLink>
+                
+                {/* Networks submenu header */}
+                <div className="px-6 py-2 text-xs text-gray-400 uppercase mt-2">Networks</div>
+                
+                {/* Network specific links */}
                 <NavLink 
                   to="/token/ethereum" 
                   className={({ isActive }) => 
@@ -157,10 +183,10 @@ function Sidebar() {
               </div>
             </li>
             
-            {/* TVL Analytics */}
+            {/* Registry Manager */}
             <li>
               <NavLink 
-                to="/tvl" 
+                to="/registry" 
                 className={({ isActive }) => 
                   `flex items-center py-3 px-6 hover:bg-gray-700 ${isActive ? 'bg-gray-700' : ''}`
                 }
@@ -168,28 +194,10 @@ function Sidebar() {
               >
                 <span className="mr-3">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
                   </svg>
                 </span>
-                TVL Analytics
-              </NavLink>
-            </li>
-            
-            {/* Network Comparison */}
-            <li>
-              <NavLink 
-                to="/networks" 
-                className={({ isActive }) => 
-                  `flex items-center py-3 px-6 hover:bg-gray-700 ${isActive ? 'bg-gray-700' : ''}`
-                }
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                <span className="mr-3">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                  </svg>
-                </span>
-                Network Comparison
+                Registry Manager
               </NavLink>
             </li>
           </ul>

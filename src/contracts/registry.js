@@ -8,20 +8,18 @@
 // Pre-populated contract registries for each chain
 // These would be imported from static JSON files in the repo
 const predefinedContracts = {
-  ethereum: [
-    { 
-      address: "0xf5C424C8c5502135ea9A22bEc42Bb98Fe93A64d9", 
-      name: "Origin Stories", 
-      type: "book",
-      description: "Collection of original NFT books"
-    }
-  ],
   base: [
     { 
-      address: "0x4F9e2e5e07B0Bfb7Ba4b5902A7F61a41Bd24C0b0", 
-      name: "Alexandria Library", 
+      address: "0x233A38EBbb401D41EacC0709E18447dca6b0b634", 
+      name: "Alexandria Books Collection 1", 
       type: "alexandria_book",
-      description: "Decentralized publishing platform"
+      description: "Alexandria's first collection of decentralized literature"
+    },
+    { 
+      address: "0x64E2C384738b9Ca2C1820a00B3C2067B8213640e", 
+      name: "Alexandria Books Collection 2", 
+      type: "alexandria_book",
+      description: "Alexandria's second collection featuring INEVITABLE and other titles"
     }
   ],
   optimism: [
@@ -34,10 +32,10 @@ const predefinedContracts = {
   ],
   polygon: [
     { 
-      address: "0x1234567890abcdef1234567890abcdef", 
+      address: "0x931204Fb8CEA7F7068995dcE924F0d76d571DF99", 
       name: "Readme Books", 
-      type: "polygon_book",
-      description: "Polygon book collection"
+      type: "book",
+      description: "Community-curated literature on Polygon"
     }
   ],
   zora: [

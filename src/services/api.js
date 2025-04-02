@@ -26,6 +26,8 @@ const getRepresentativeTokenId = async (contractAddr, chain, assetType) => {
 };
 
 // Collections API
+// In src/services/api.js - Update the fetchCollections function
+
 export const fetchCollections = async (chain = 'all', limit = 12) => {
   try {
     // Get contracts from registry
@@ -41,6 +43,20 @@ export const fetchCollections = async (chain = 'all', limit = 12) => {
     // Fetch a representative NFT for each collection to get collection data
     const collectionsPromises = contracts.slice(0, limit).map(async (contract) => {
       try {
+        // Skip known problematic contracts
+        if (contract.address === "0x1234567890abcdef1234567890abcdef" && contract.chain === "polygon") {
+          console.log(`Skipping problematic contract: ${contract.address} on ${contract.chain}`);
+          // Return basic info without making API call
+          return {
+            contractAddress: contract.address,
+            chain: contract.chain,
+            name: contract.name || "Polygon Book Collection",
+            type: contract.type,
+            description: "Contract data currently unavailable",
+            imageURI: "/images/placeholder-cover.png"
+          };
+        }
+        
         // Get a representative token ID
         const tokenId = await getRepresentativeTokenId(contract.address, contract.chain, contract.type);
         
@@ -71,7 +87,7 @@ export const fetchCollections = async (chain = 'all', limit = 12) => {
           chain: contract.chain,
           name: contract.name || "Unknown Collection",
           type: contract.type,
-          description: ""
+          description: "Unable to fetch collection data"
         };
       }
     });
@@ -92,7 +108,36 @@ export const fetchCollections = async (chain = 'all', limit = 12) => {
   }
 };
 
-export const fetchCollectionDetail = async (address, chain) => {
+export const fetchCollectionTokenBatch = async (address, chain, tokenIds = [], options = {}) => {
+  try {
+    if (!address || !chain || !tokenIds.length) {
+      throw new Error('Missing required parameters for batch fetch');
+    }
+    
+    // Get contract details from registry
+    const contract = getContractByAddress(address, chain) || {
+      address,
+      chain,
+      type: 'nft' // Default type if not found in registry
+    };
+    
+    // Prepare query params
+    const assetType = options.assetType || contract.type;
+    const includeOwnership = options.includeOwnership ? 'true' : 'false';
+    
+    // Call the batch endpoint
+    const batchUrl = `/.netlify/functions/nft/batch/${address}/${chain}?assetType=${assetType}&tokenIds=${tokenIds.join(',')}&includeOwnership=${includeOwnership}`;
+    const response = await api.get(batchUrl);
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching token batch:', error);
+    throw error;
+  }
+};
+
+// And add this function for collection info
+export const fetchCollectionInfo = async (address, chain) => {
   try {
     // If chain is not provided, try to find it in the registry
     if (!chain) {
@@ -106,78 +151,87 @@ export const fetchCollectionDetail = async (address, chain) => {
     
     // Get contract details from registry
     const contract = getContractByAddress(address, chain) || {
-      address: address,
-      chain: chain,
+      address,
+      chain,
       type: 'nft' // Default type if not found in registry
     };
     
-    // Get a representative token ID
-    const tokenId = await getRepresentativeTokenId(address, chain, contract.type);
+    // Call the collection-info endpoint
+    const collectionUrl = `/.netlify/functions/nft/${address}/${chain}/collection-info?assetType=${contract.type}`;
+    const response = await api.get(collectionUrl);
     
-    // Fetch basic collection information from the representative token
-    const collectionUrl = `/.netlify/functions/nft/${address}/${chain}/${tokenId}?assetType=${contract.type}`;
-    const collectionResponse = await api.get(collectionUrl);
-    const nftData = collectionResponse.data;
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching collection info:', error);
+    throw error;
+  }
+};
+
+// Update the fetchCollectionDetail function to use the new endpoints
+export const fetchCollectionDetail = async (address, chain, page = 1, pageSize = 20) => {
+  try {
+    // If chain is not provided, try to find it in the registry
+    if (!chain) {
+      const contract = getContractByAddress(address);
+      if (contract) {
+        chain = contract.chain;
+      } else {
+        chain = 'ethereum'; // Default to ethereum if not found
+      }
+    }
+    
+    // Step 1: Get collection info
+    const collectionData = await fetchCollectionInfo(address, chain);
     
     // Create a collection object
     const collection = {
       contractAddress: address,
       chain: chain,
-      name: nftData.title || contract.name || "Unknown Collection",
-      description: nftData.description || "",
-      type: contract.type,
-      imageURI: nftData.imageURI || "",
-      totalSupply: nftData.totalSupply,
-      maxSupply: nftData.maxSupply,
-      creator: nftData.creator,
-      symbol: nftData.additionalData?.symbol
+      name: collectionData.name || "Unknown Collection",
+      description: collectionData.description || "",
+      type: collectionData.assetType,
+      imageURI: collectionData.imageURI || "",
+      totalSupply: collectionData.totalSupply,
+      maxSupply: collectionData.maxSupply,
+      creator: collectionData.creator,
+      format: collectionData.format
     };
     
-    // For items, we'll use the representative token for now
-    // In a full implementation, you'd need to fetch multiple tokens
-    const items = [{
-      id: nftData.id,
-      tokenId: nftData.tokenId,
-      title: nftData.title,
-      description: nftData.description,
-      imageURI: nftData.imageURI,
-      contentURI: nftData.contentURI
-    }];
+    // Step 2: Calculate token IDs for this page
+    // This assumes token IDs start at 1 and are sequential
+    // You might need to adjust this for collections with different ID schemes
+    const startTokenId = (page - 1) * pageSize + 1;
+    const endTokenId = startTokenId + pageSize - 1;
+    const totalItems = collection.totalSupply || 100; // Default to 100 if unknown
     
-    // If we know this collection has multiple items, try to fetch a few more
-    // In a production app, you'd implement pagination and more sophisticated fetching
-    if (nftData.totalSupply && nftData.totalSupply > 1) {
-      // For demo purposes, try to fetch a few more tokens (up to 5)
-      const additionalTokenIds = [2, 3, 4, 5].slice(0, Math.min(4, nftData.totalSupply - 1));
-      
-      const additionalItemsPromises = additionalTokenIds.map(async (id) => {
-        try {
-          const itemUrl = `/.netlify/functions/nft/${address}/${chain}/${id}?assetType=${contract.type}`;
-          const itemResponse = await api.get(itemUrl);
-          const itemData = itemResponse.data;
-          
-          return {
-            id: itemData.id,
-            tokenId: itemData.tokenId,
-            title: itemData.title,
-            description: itemData.description,
-            imageURI: itemData.imageURI,
-            contentURI: itemData.contentURI
-          };
-        } catch (error) {
-          console.warn(`Failed to fetch token #${id}:`, error);
-          return null;
-        }
-      });
-      
-      const additionalItems = (await Promise.all(additionalItemsPromises)).filter(Boolean);
-      items.push(...additionalItems);
+    // Generate array of token IDs to fetch
+    const tokenIds = [];
+    for (let id = startTokenId; id <= endTokenId; id++) {
+      if (id <= totalItems) {
+        tokenIds.push(id.toString());
+      }
     }
     
+    // Step 3: Fetch the batch of tokens
+    let items = [];
+    if (tokenIds.length > 0) {
+      const batchResult = await fetchCollectionTokenBatch(address, chain, tokenIds);
+      items = batchResult.items || [];
+    }
+    
+    // Return the combined result with pagination info
     return {
       data: {
-        collection: collection,
-        items: items
+        collection,
+        items,
+        pagination: {
+          currentPage: page,
+          pageSize: pageSize,
+          totalItems,
+          totalPages: Math.ceil(totalItems / pageSize),
+          hasNextPage: page * pageSize < totalItems,
+          hasPrevPage: page > 1
+        }
       }
     };
   } catch (error) {
@@ -308,6 +362,27 @@ export const initializeTracking = async () => {
     }));
   } catch (error) {
     console.error('Error initializing tracking for contracts:', error);
+    throw error;
+  }
+};
+
+export const fetchBookDetail = async (address, chain, tokenId) => {
+  try {
+    // Get contract details from registry
+    const contract = getContractByAddress(address, chain) || {
+      address,
+      chain,
+      type: 'nft' // Default type if not found in registry
+    };
+    
+    // Call the API to get book metadata
+    const url = `/.netlify/functions/nft/${address}/${chain}/${tokenId}?assetType=${contract.type}`;
+    console.log(`Fetching book data from: ${url}`);
+    
+    const response = await api.get(url);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching book detail:', error);
     throw error;
   }
 };
