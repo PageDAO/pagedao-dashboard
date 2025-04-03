@@ -19,11 +19,22 @@ function BookDetail() {
       
       try {
         setLoading(true);
-        const bookData = await fetchBookDetail(address, chain, tokenId);
+        const response = await fetchBookDetail(address, chain, tokenId);
         
         if (isMounted) {
-          console.log('Book detail response:', bookData);
-          setBook(bookData);
+          console.log('Book detail response:', response);
+          
+          // Handle both old and new response formats
+          if (response.success && response.data) {
+            // New format with nested data
+            console.log('Setting book state from nested data structure');
+            setBook(response.data);
+          } else {
+            // Old format or already extracted data
+            console.log('Setting book state directly from response');
+            setBook(response);
+          }
+          
           setLoading(false);
         }
       } catch (err) {
@@ -78,6 +89,20 @@ function BookDetail() {
     );
   }
   
+  // Add this right after the error checking
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Book object in render:', book);
+    console.log('Has contentURI:', !!book?.contentURI);
+    console.log('Has metadata:', !!book?.metadata);
+    if (book?.metadata) {
+      console.log('Metadata URLs:', {
+        interactive_url: book.metadata.interactive_url,
+        animation_url: book.metadata.animation_url,
+        external_url: book.metadata.external_url
+      });
+    }
+  }
+  
   return (
     <div className="container mx-auto px-4 py-6">
       <div className="mb-6">
@@ -110,13 +135,18 @@ function BookDetail() {
               
               {/* Action Buttons */}
               <div className="mt-6 space-y-3">
-                {/* Use interactive_url if available, fall back to contentURI */}
-                {(book.interactive_url || book.contentURI) && (
+                {(book?.contentURI || book?.content_uri || book?.fileURI || 
+                  book?.file_uri || book?.interactive_url || book?.animation_url || 
+                  book?.external_url || book?.externalUrl || book?.content_url || 
+                  book?.contentUrl) && (
                   <a 
-                    href={book.interactive_url || book.contentURI}
+                    href={book?.contentURI || book?.content_uri || book?.fileURI || 
+                          book?.file_uri || book?.interactive_url || book?.animation_url || 
+                          book?.external_url || book?.externalUrl || book?.content_url || 
+                          book?.contentUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-full inline-flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-center font-medium"
+                    className="w-full inline-flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
                   >
                     <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>

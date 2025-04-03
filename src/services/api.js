@@ -439,13 +439,107 @@ function getAssetTypeForChain(chain) {
 // Update the existing fetchBookDetail function to use the batch endpoint for single books
 export const fetchBookDetail = async (address, chain, tokenId) => {
   try {
-    const batchResponse = await fetchBookBatch(address, chain, tokenId, true);
+    // Get contract details from registry
+    const contract = getContractByAddress(address, chain) || {
+      address,
+      chain,
+      type: 'nft' // Default type if not found in registry
+    };
     
-    if (batchResponse.success && batchResponse.data.items && batchResponse.data.items.length > 0) {
-      return batchResponse.data.items[0];
-    } else {
-      throw new Error('Book not found');
+    // Call the API to get book metadata
+    const url = `/.netlify/functions/nft/${address}/${chain}/${tokenId}?assetType=${contract.type}`;
+    console.log(`Fetching book data from: ${url}`);
+    
+    const response = await api.get(url);
+    
+    // Check if the response has a nested data structure
+    let bookData = response.data;
+    
+    // If response has a nested data property, use that as our book data
+    if (bookData.success && bookData.data) {
+      console.log('Response has nested data structure, extracting data property');
+      bookData = bookData.data;
     }
+    
+    // Log the full structure to see what we're working with
+    console.log('Book data structure before processing:', JSON.stringify(bookData, null, 2).substring(0, 500) + '...');
+    
+    // Look for content URIs in various places and standardize to contentURI
+    const urlFieldsToCheck = [
+      'contentURI', 'content_uri', 'contentUrl', 'content_url', 
+      'fileURI', 'file_uri', 'fileUrl', 'file_url',
+      'interactive_url', 'animation_url', 'external_url',
+      'uri', 'url', 'externalUrl'
+    ];
+    
+    // Check top-level fields
+    for (const field of urlFieldsToCheck) {
+      if (bookData[field] && !bookData.contentURI) {
+        bookData.contentURI = bookData[field];
+        console.log(`Found content URL in field '${field}', set to contentURI:`, bookData.contentURI);
+      }
+    }
+    
+    // If we have raw metadata as string, try to parse it
+    if (bookData.metadata && typeof bookData.metadata === 'string') {
+      try {
+        bookData.metadata = JSON.parse(bookData.metadata);
+        console.log('Parsed string metadata into object');
+      } catch (e) {
+        console.log('Failed to parse metadata string:', e);
+      }
+    }
+    
+    // Check metadata fields
+    if (bookData.metadata && typeof bookData.metadata === 'object') {
+      for (const field of urlFieldsToCheck) {
+        if (bookData.metadata[field] && !bookData.contentURI) {
+          bookData.contentURI = bookData.metadata[field];
+          console.log(`Found content URL in metadata.${field}, set to contentURI:`, bookData.contentURI);
+        }
+      }
+      
+      // Check for content in properties
+      if (bookData.metadata.properties) {
+        // Some NFTs store content in properties.files.uri or similar
+        if (bookData.metadata.properties.files) {
+          const files = Array.isArray(bookData.metadata.properties.files) 
+            ? bookData.metadata.properties.files 
+            : [bookData.metadata.properties.files];
+          
+          for (const file of files) {
+            if (file.uri && !bookData.contentURI) {
+              bookData.contentURI = file.uri;
+              console.log('Found content URL in properties.files.uri:', bookData.contentURI);
+              break;
+            }
+          }
+        }
+        
+        // Direct property fields
+        for (const field of urlFieldsToCheck) {
+          if (bookData.metadata.properties[field] && !bookData.contentURI) {
+            bookData.contentURI = bookData.metadata.properties[field];
+            console.log(`Found content URL in metadata.properties.${field}:`, bookData.contentURI);
+          }
+        }
+      }
+    }
+    
+    // Last resort - check for URLs in the description
+    if (!bookData.contentURI && bookData.description) {
+      // Look for http/https/ipfs links in the description
+      const urlRegex = /(https?:\/\/[^\s]+)|(ipfs:\/\/[^\s]+)|(ipfs\.io\/ipfs\/[^\s]+)/g;
+      const matches = [...bookData.description.matchAll(urlRegex)];
+      
+      if (matches.length > 0) {
+        bookData.contentURI = matches[0][0];
+        console.log('Extracted URL from description:', bookData.contentURI);
+      }
+    }
+    
+    console.log('Processed book data:', bookData);
+    return bookData;
   } catch (error) {
     console.error('Error fetching book detail:', error);
     throw error;
