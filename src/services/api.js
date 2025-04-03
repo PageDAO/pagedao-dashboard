@@ -167,7 +167,7 @@ export const fetchCollectionInfo = async (address, chain) => {
   }
 };
 
-// Update the fetchCollectionDetail function to use the new endpoints
+// Update the fetchCollectionDetail function to handle timeouts better
 export const fetchCollectionDetail = async (address, chain, page = 1, pageSize = 20) => {
   try {
     // If chain is not provided, try to find it in the registry
@@ -181,7 +181,10 @@ export const fetchCollectionDetail = async (address, chain, page = 1, pageSize =
     }
     
     // Step 1: Get collection info
-    const collectionData = await fetchCollectionInfo(address, chain);
+    const collectionInfoUrl = `/.netlify/functions/nft/${address}/${chain}/collection-info?assetType=book`;
+    console.log(`Fetching collection info from: ${collectionInfoUrl}`);
+    const collectionResponse = await api.get(collectionInfoUrl);
+    const collectionData = collectionResponse.data.data;
     
     // Create a collection object
     const collection = {
@@ -189,7 +192,7 @@ export const fetchCollectionDetail = async (address, chain, page = 1, pageSize =
       chain: chain,
       name: collectionData.name || "Unknown Collection",
       description: collectionData.description || "",
-      type: collectionData.assetType,
+      type: collectionData.assetType || "book",
       imageURI: collectionData.imageURI || "",
       totalSupply: collectionData.totalSupply,
       maxSupply: collectionData.maxSupply,
@@ -198,8 +201,6 @@ export const fetchCollectionDetail = async (address, chain, page = 1, pageSize =
     };
     
     // Step 2: Calculate token IDs for this page
-    // This assumes token IDs start at 1 and are sequential
-    // You might need to adjust this for collections with different ID schemes
     const startTokenId = (page - 1) * pageSize + 1;
     const endTokenId = startTokenId + pageSize - 1;
     const totalItems = collection.totalSupply || 100; // Default to 100 if unknown
@@ -212,11 +213,45 @@ export const fetchCollectionDetail = async (address, chain, page = 1, pageSize =
       }
     }
     
-    // Step 3: Fetch the batch of tokens
+    // Step 3: Fetch tokens in smaller batches to avoid timeouts
     let items = [];
     if (tokenIds.length > 0) {
-      const batchResult = await fetchCollectionTokenBatch(address, chain, tokenIds);
-      items = batchResult.items || [];
+      // Split into smaller batches of 5 tokens each
+      const batchSize = 5;
+      const batches = [];
+      
+      for (let i = 0; i < tokenIds.length; i += batchSize) {
+        batches.push(tokenIds.slice(i, i + batchSize));
+      }
+      
+      console.log(`Fetching ${batches.length} batches of tokens`);
+      
+      // Process each batch with a longer timeout
+      for (const batchTokens of batches) {
+        try {
+          const batchUrl = `/.netlify/functions/nft/batch/${address}/${chain}?assetType=${collection.type}&tokenIds=${batchTokens.join(',')}&includeOwnership=true`;
+          console.log(`Fetching tokens batch from: ${batchUrl}`);
+          
+          // Create a special instance with longer timeout just for this request
+          const batchResponse = await axios({
+            method: 'get',
+            url: batchUrl,
+            baseURL: API_BASE_URL,
+            timeout: 30000, // 30 seconds timeout for batch requests
+            headers: {
+              'Content-Type': 'application/json',
+            }
+          });
+          
+          // Add these items to our collection
+          if (batchResponse.data?.data?.items) {
+            items = [...items, ...batchResponse.data.data.items];
+          }
+        } catch (batchError) {
+          console.warn(`Error fetching batch ${batchTokens.join(',')}: ${batchError.message}`);
+          // Continue with other batches even if one fails
+        }
+      }
     }
     
     // Return the combined result with pagination info
@@ -366,21 +401,51 @@ export const initializeTracking = async () => {
   }
 };
 
+// Add this new function to src/services/api.js
+
+export const fetchBookBatch = async (contractAddress, chain, tokenIds = [], includeOwnership = true) => {
+  try {
+    const assetType = getAssetTypeForChain(chain);
+    const tokenIdsParam = Array.isArray(tokenIds) ? tokenIds.join(',') : tokenIds;
+    
+    const response = await api.get(`/.netlify/functions/nft/batch/${contractAddress}/${chain}`, {
+      params: {
+        assetType,
+        tokenIds: tokenIdsParam,
+        includeOwnership
+      }
+    });
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching book batch:', error);
+    throw error;
+  }
+};
+
+// Helper function to determine asset type based on chain
+function getAssetTypeForChain(chain) {
+  const types = {
+    'base': 'alexandria_book',
+    'ethereum': 'mirror_publication',
+    'zora': 'zora_nft',
+    'polygon': 'book', // Based on your API example
+    'optimism': 'book'
+  };
+  
+  return types[chain] || 'book';
+}
+
+// Update the existing fetchBookDetail function to use the batch endpoint for single books
 export const fetchBookDetail = async (address, chain, tokenId) => {
   try {
-    // Get contract details from registry
-    const contract = getContractByAddress(address, chain) || {
-      address,
-      chain,
-      type: 'nft' // Default type if not found in registry
-    };
+    const batchResponse = await fetchBookBatch(address, chain, tokenId, true);
     
-    // Call the API to get book metadata
-    const url = `/.netlify/functions/nft/${address}/${chain}/${tokenId}?assetType=${contract.type}`;
-    console.log(`Fetching book data from: ${url}`);
-    
-    const response = await api.get(url);
-    return response.data;
+    if (batchResponse.success && batchResponse.data.items && batchResponse.data.items.length > 0) {
+      return batchResponse.data.items[0];
+    } else {
+      throw new Error('Book not found');
+    }
   } catch (error) {
     console.error('Error fetching book detail:', error);
     throw error;

@@ -44,8 +44,7 @@ function App() {
               <Route path="/collections" element={<Collections />} />
               <Route path="/collections/chain/:chainId" element={<ChainCollections />} /> {/* New route */}
               <Route path="/collections/:address" element={<CollectionDetail />} />
-              {/* Add new route for book detail */}
-              <Route path="/collections/:address/book/:tokenId" element={<BookDetail />} />
+              <Route path="/collections/:address/:tokenId" element={<BookDetail />} />
               <Route path="/registry" element={<RegistryManager />} />
             </Routes>
           </main>

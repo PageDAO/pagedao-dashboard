@@ -188,15 +188,17 @@ function ChainCollections() {
             <div className="p-6">
               <div className="flex flex-col lg:flex-row">
                 <div className="w-full lg:w-1/3 mb-6 lg:mb-0 lg:pr-6">
-                  <img 
-                    src={featuredCollection?.imageURI || featured.image || '/images/placeholder-cover.png'} 
-                    alt={featuredCollection?.name || featured.title} 
-                    className="w-full h-auto rounded-lg shadow-sm object-cover"
-                    style={{ maxHeight: '320px' }}
-                    onError={(e) => {
-                      e.target.src = '/images/placeholder-cover.png';
-                    }}
-                  />
+                  <div className="bg-gray-100 dark:bg-gray-900 rounded-lg p-2">
+                    <img 
+                      src={featuredCollection?.imageURI || featured.image || '/images/placeholder-cover.png'} 
+                      alt={featuredCollection?.name || featured.title} 
+                      className="w-full h-auto rounded-lg object-contain"
+                      style={{ maxHeight: '320px' }}
+                      onError={(e) => {
+                        e.target.src = '/images/placeholder-cover.png';
+                      }}
+                    />
+                  </div>
                 </div>
                 <div className="w-full lg:w-2/3">
                   <div className="flex flex-wrap items-center mb-3">
@@ -255,10 +257,32 @@ function ChainCollections() {
         {regularCollections.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {regularCollections.map((collection) => (
-              <NFTCard 
+              <Link 
                 key={`${collection.chain}-${collection.contractAddress}`}
-                collection={collection}
-              />
+                to={`/collections/${collection.contractAddress}?chain=${collection.chain}`}
+                className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
+              >
+                <div className="aspect-[3/4] bg-gray-100 dark:bg-gray-900 p-2">
+                  <img 
+                    src={collection.imageURI || '/images/placeholder-cover.png'} 
+                    alt={collection.name || 'Collection'} 
+                    className="w-full h-full object-contain"
+                    onError={(e) => {
+                      e.target.src = '/images/placeholder-cover.png';
+                    }}
+                  />
+                </div>
+                
+                <div className="p-4">
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-1 truncate">
+                    {collection.name || 'Unnamed Collection'}
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 h-10 overflow-hidden">
+                    {collection.description?.substring(0, 60)}
+                    {collection.description?.length > 60 ? '...' : ''}
+                  </p>
+                </div>
+              </Link>
             ))}
           </div>
         ) : (

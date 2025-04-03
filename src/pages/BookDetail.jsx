@@ -19,11 +19,11 @@ function BookDetail() {
       
       try {
         setLoading(true);
-        const response = await fetchBookDetail(address, chain, tokenId);
+        const bookData = await fetchBookDetail(address, chain, tokenId);
         
         if (isMounted) {
-          console.log('Book detail response:', response);
-          setBook(response);
+          console.log('Book detail response:', bookData);
+          setBook(bookData);
           setLoading(false);
         }
       } catch (err) {
@@ -96,26 +96,32 @@ function BookDetail() {
           <div className="flex flex-col md:flex-row">
             {/* Book Cover */}
             <div className="md:w-1/3 mb-6 md:mb-0 md:pr-8">
-              <img 
-                src={book.imageURI || '/images/placeholder-cover.png'} 
-                alt={book.title || `Book #${tokenId}`} 
-                className="w-full rounded-lg shadow-md object-cover"
-                style={{ maxHeight: '500px' }}
-                onError={(e) => {
-                  e.target.src = '/images/placeholder-cover.png';
-                }}
-              />
+              <div className="bg-gray-100 dark:bg-gray-900 rounded-lg shadow-md p-2">
+                <img 
+                  src={book.imageURI || '/images/placeholder-cover.png'} 
+                  alt={book.title || `Book #${tokenId}`} 
+                  className="w-full rounded-lg object-contain"
+                  style={{ maxHeight: '500px' }}
+                  onError={(e) => {
+                    e.target.src = '/images/placeholder-cover.png';
+                  }}
+                />
+              </div>
               
               {/* Action Buttons */}
               <div className="mt-6 space-y-3">
-                {book.contentURI && (
+                {/* Use interactive_url if available, fall back to contentURI */}
+                {(book.interactive_url || book.contentURI) && (
                   <a 
-                    href={book.contentURI}
+                    href={book.interactive_url || book.contentURI}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-full inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-center"
+                    className="w-full inline-flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-center font-medium"
                   >
-                    Read Book
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                    </svg>
+                    Readme
                   </a>
                 )}
                 
@@ -244,6 +250,20 @@ function BookDetail() {
                     ) : null
                   ))
                 }
+                {/* Add this to the Book Details Grid section */}
+                {book.contentURI && (
+                  <div className="col-span-2">
+                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Content URL</h3>
+                    <a 
+                      href={book.contentURI}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-500 hover:text-blue-700 text-sm break-all"
+                    >
+                      {book.contentURI}
+                    </a>
+                  </div>
+                )}
               </div>
               
                             {/* NFT Details */}
