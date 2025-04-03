@@ -10,16 +10,6 @@
 const predefinedContracts = {
   base: [
     { 
-      address: "0x233A38EBbb401D41EacC0709E18447dca6b0b634", 
-      name: "Alexandria Books Collection 1", 
-      type: "alexandria_book",
-      description: "Alexandria's first collection of decentralized literature"
-    },
-    { 
-      address: "0x64E2C384738b9Ca2C1820a00B3C2067B8213640e", 
-      name: "Alexandria Books Collection 2", 
-      type: "alexandria_book",
-      description: "Alexandria's second collection featuring INEVITABLE and other titles"
     }
   ],
   optimism: [

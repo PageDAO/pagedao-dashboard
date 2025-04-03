@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { fetchCollections } from '../services/api';
 import NFTCard from '../components/nft/NFTCard';
-// Add this import
-import { isAlexandriaBook, extractAlexandriaMetadata } from '../utils/alexandriaUtils';
 
 function ChainCollections() {
   const { chainId } = useParams();
@@ -14,10 +12,10 @@ function ChainCollections() {
   // Define featured collections by chain
   const featuredCollections = {
     base: {
-      title: "Alexandria Books", // Generic title that will be replaced with actual title
-      description: "Digital-first publisher pushing the boundaries of decentralized publishing with tools for authors to create and distribute their work.",
-      contractAddress: "0x64E2C384738b9Ca2C1820a00B3C2067B8213640e",
-      image: "/images/featured/alexandria-books.jpg"
+      title: "Base Literature",
+      description: "Digital-first literature published on the Base blockchain. Explore a variety of books and publications in this growing ecosystem.",
+      contractAddress: "", // Empty - no featured contract
+      image: "/images/featured/base-books.jpg"
     },
     polygon: {
       title: "Readme Books",
