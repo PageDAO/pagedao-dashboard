@@ -13,8 +13,8 @@ function ChainCollections() {
   const featuredCollections = {
     base: {
       title: "Alexandria Labs",
-      description: "Digital-first publisher pushing the boundaries of decentralized publishing with tools for authors to create and distribute their work while maintaining their rights and creative control.",
-      contractAddress: "0x4F9e2e5e07B0Bfb7Ba4b5902A7F61a41Bd24C0b0",
+      description: "Digital-first publisher building on Base. Each book is its own smart contract, giving authors true digital ownership of their work with built-in revenue sharing.",
+      contractAddress: "0x64E2C384738b9Ca2C1820a00B3C2067B8213640e", // Featured book address
       image: "/images/featured/alexandria-books.jpg"
     },
     polygon: {
@@ -94,6 +94,19 @@ function ChainCollections() {
         
         // Check the data structure
         const items = response.data?.items || [];
+        
+        // Debug Alexandria collections
+        if (chainId === 'base') {
+          console.log('Alexandria collections:', items);
+          items.forEach((item, index) => {
+            console.log(`Collection ${index}:`, {
+              contractAddress: item.contractAddress,
+              chain: item.chain,
+              name: item.name || item.title,
+              hasValidLink: !!(item.contractAddress && item.chain)
+            });
+          });
+        }
         
         setCollections(items);
         setLoading(false);

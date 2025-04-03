@@ -30,7 +30,11 @@ function NFTCard({ collection }) {
     return null;
   }
   
-  return (
+  // Make sure we have a valid contract address and chain
+  const hasValidLink = collection.contractAddress && collection.chain;
+  
+  // Create the card content (will be used inside or outside of Link)
+  const cardContent = (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
       <div className="relative pb-[100%]">
         <img 
@@ -42,7 +46,7 @@ function NFTCard({ collection }) {
       </div>
       <div className="p-4">
         <h3 className="text-lg font-semibold text-gray-800 dark:text-white truncate">
-          {collection.title || 'Untitled Collection'}
+          {collection.title || collection.name || 'Untitled Collection'}
         </h3>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
           {collection.format && `Format: ${collection.format}`}
@@ -53,18 +57,32 @@ function NFTCard({ collection }) {
             By: {collection.additionalData.author}
           </p>
         )}
-        {/* Link to collection detail */}
-        <Link 
-          to={`/collections/${collection.contractAddress}?chain=${collection.chain}`}
-          className="mt-3 inline-flex items-center text-sm text-blue-500 hover:text-blue-700"
-        >
-          View details
-          <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
-          </svg>
-        </Link>
+        {/* View details link or info */}
+        <div className="mt-3 flex items-center text-sm">
+          {hasValidLink ? (
+            <span className="text-blue-500 hover:text-blue-700">
+              View details
+              <svg className="ml-1 inline w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
+              </svg>
+            </span>
+          ) : (
+            <span className="text-gray-400">
+              Details unavailable
+            </span>
+          )}
+        </div>
       </div>
     </div>
+  );
+  
+  // Wrap in Link if we have valid data, otherwise just return the card
+  return hasValidLink ? (
+    <Link to={`/collections/${collection.contractAddress}?chain=${collection.chain}`}>
+      {cardContent}
+    </Link>
+  ) : (
+    cardContent
   );
 }
 

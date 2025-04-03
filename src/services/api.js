@@ -43,6 +43,37 @@ export const fetchCollections = async (chain = 'all', limit = 12) => {
     // Fetch a representative NFT for each collection to get collection data
     const collectionsPromises = contracts.slice(0, limit).map(async (contract) => {
       try {
+        // Special handling for Alexandria Books (Base chain)
+        if (contract.chain === 'base') {
+          // For Alexandria, we want to make sure we're getting as much metadata as possible
+          const tokenId = await getRepresentativeTokenId(contract.address, contract.chain, 'alexandria_book');
+          
+          // For Alexandria books, request with specific assetType
+          const url = `/.netlify/functions/nft/${contract.address}/${contract.chain}/${tokenId}?assetType=alexandria_book`;
+          console.log(`Fetching Alexandria book data from: ${url}`);
+          
+          const response = await api.get(url);
+          const nftData = response.data;
+          
+          // For Alexandria, ensure we have a type set
+          return {
+            contractAddress: contract.address,
+            chain: contract.chain,
+            name: nftData.title || contract.name,
+            description: nftData.description || "",
+            type: 'alexandria_book',
+            imageURI: nftData.imageURI || "",
+            totalSupply: nftData.totalSupply || 1, // Typically 1 for Alexandria books
+            maxSupply: nftData.maxSupply,
+            creator: nftData.creator,
+            format: nftData.format || 'Digital Book',
+            additionalData: {
+              ...nftData.additionalData,
+              author: nftData.metadata?.author || nftData.additionalData?.author
+            }
+          };
+        }
+        
         // Skip known problematic contracts
         if (contract.address === "0x1234567890abcdef1234567890abcdef" && contract.chain === "polygon") {
           console.log(`Skipping problematic contract: ${contract.address} on ${contract.chain}`);
@@ -137,7 +168,7 @@ export const fetchCollectionTokenBatch = async (address, chain, tokenIds = [], o
 };
 
 // And add this function for collection info
-export const fetchCollectionInfo = async (address, chain) => {
+export const fetchCollectionInfo = async (address, chain, assetType) => {
   try {
     // If chain is not provided, try to find it in the registry
     if (!chain) {
@@ -153,11 +184,11 @@ export const fetchCollectionInfo = async (address, chain) => {
     const contract = getContractByAddress(address, chain) || {
       address,
       chain,
-      type: 'nft' // Default type if not found in registry
+      type: assetType || 'nft' // Use provided assetType or default to nft
     };
     
     // Call the collection-info endpoint
-    const collectionUrl = `/.netlify/functions/nft/${address}/${chain}/collection-info?assetType=${contract.type}`;
+    const collectionUrl = `/.netlify/functions/nft/${address}/${chain}/collection-info?assetType=${assetType || contract.type}`;
     const response = await api.get(collectionUrl);
     
     return response.data;
@@ -180,25 +211,36 @@ export const fetchCollectionDetail = async (address, chain, page = 1, pageSize =
       }
     }
     
-    // Step 1: Get collection info
-    const collectionInfoUrl = `/.netlify/functions/nft/${address}/${chain}/collection-info?assetType=book`;
-    console.log(`Fetching collection info from: ${collectionInfoUrl}`);
-    const collectionResponse = await api.get(collectionInfoUrl);
-    const collectionData = collectionResponse.data.data;
+    // Special handling for Alexandria books (Base chain)
+    const isAlexandriaBook = chain === 'base';
+    const assetType = isAlexandriaBook ? 'alexandria_book' : undefined;
     
-    // Create a collection object
+    // Step 1: Get collection info with specific asset type if needed
+    const collectionData = await fetchCollectionInfo(address, chain, assetType);
+    
+    // Create a collection object with enhanced fields for Alexandria
     const collection = {
       contractAddress: address,
       chain: chain,
       name: collectionData.name || "Unknown Collection",
       description: collectionData.description || "",
-      type: collectionData.assetType || "book",
+      type: isAlexandriaBook ? 'alexandria_book' : collectionData.assetType,
       imageURI: collectionData.imageURI || "",
       totalSupply: collectionData.totalSupply,
       maxSupply: collectionData.maxSupply,
       creator: collectionData.creator,
-      format: collectionData.format
+      format: collectionData.format || (isAlexandriaBook ? 'Digital Book' : '')
     };
+    
+    // For Alexandria books, add additional metadata
+    if (isAlexandriaBook && collectionData.metadata) {
+      collection.additionalData = {
+        ...(collection.additionalData || {}),
+        author: collectionData.metadata.author || collectionData.additionalData?.author,
+        publisher: 'Alexandria Labs',
+        coverArtist: collectionData.metadata.coverArtist || collectionData.metadata.artist
+      };
+    }
     
     // Step 2: Calculate token IDs for this page
     const startTokenId = (page - 1) * pageSize + 1;
