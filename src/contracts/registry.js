@@ -10,7 +10,12 @@
 const predefinedContracts = {
   base: [
     { 
-    }
+      address: "0x8338c8e0e3e713ee2502c526f4840657be9fb350", 
+      name: "Building Blog by IPFSnut", 
+      type: "mirror_publication",
+      description: "Builder blog posts published through Mirror protocol",
+      format: "article"
+    },
   ],
   optimism: [
     { 
@@ -28,14 +33,6 @@ const predefinedContracts = {
       description: "Community-curated literature on Polygon"
     }
   ],
-  zora: [
-    { 
-      address: "0xabcdef1234567890abcdef1234567890", 
-      name: "Zora Publications", 
-      type: "zora_nft",
-      description: "NFT books on Zora"
-    }
-  ]
 };
 
 // Initialize with persisted custom contracts from localStorage

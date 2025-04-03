@@ -14,8 +14,14 @@ function ChainCollections() {
     base: {
       title: "Base Literature",
       description: "Digital-first literature published on the Base blockchain. Explore a variety of books and publications in this growing ecosystem.",
-      contractAddress: "", // Empty - no featured contract
+      contractAddress: "", 
       image: "/images/featured/base-books.jpg"
+    },
+    optimism: {
+      title: "Builder blog posts by IPFSnut",
+      description: "Community-created articles and essays published through Mirror protocol. Mirror provides decentralized publishing with built-in monetization and governance tools.",
+      contractAddress: "0x8338c8e0e3e713ee2502c526f4840657be9fb350",
+      image: "/images/featured/mirror-essays.jpg"  
     },
     polygon: {
       title: "Readme Books",
