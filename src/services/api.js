@@ -1,5 +1,6 @@
 import { getContractByAddress, getContracts } from '../contracts/registry';
 import axios from 'axios';
+import { extractAlexandriaMetadata, isAlexandriaBook } from '../utils/alexandriaUtils';
 
 // API base URL - from environment variable
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://pagedao-hub-serverless-api.netlify.app';
@@ -43,33 +44,37 @@ export const fetchCollections = async (chain = 'all', limit = 12) => {
     // Fetch a representative NFT for each collection to get collection data
     const collectionsPromises = contracts.slice(0, limit).map(async (contract) => {
       try {
-        // Special handling for Alexandria Books (Base chain)
-        if (contract.chain === 'base') {
-          // For Alexandria, we want to make sure we're getting as much metadata as possible
-          const tokenId = await getRepresentativeTokenId(contract.address, contract.chain, 'alexandria_book');
-          
-          // For Alexandria books, request with specific assetType
-          const url = `/.netlify/functions/nft/${contract.address}/${contract.chain}/${tokenId}?assetType=alexandria_book`;
+        // Special handling for Alexandria books
+        if (isAlexandriaBook({ chain: contract.chain, contractAddress: contract.address })) {
+          const url = `/.netlify/functions/nft/${contract.address}/${contract.chain}/1?assetType=alexandria_book`;
           console.log(`Fetching Alexandria book data from: ${url}`);
           
           const response = await api.get(url);
-          const nftData = response.data;
+          const bookData = response.data;
           
-          // For Alexandria, ensure we have a type set
+          // Use our utility to extract Alexandria metadata
+          const alexandriaMetadata = extractAlexandriaMetadata(bookData);
+          
+          // Return the collection with properly formatted metadata
           return {
             contractAddress: contract.address,
             chain: contract.chain,
-            name: nftData.title || contract.name,
-            description: nftData.description || "",
+            title: alexandriaMetadata.title, // Use the extracted title
+            name: alexandriaMetadata.title || contract.name,
+            description: alexandriaMetadata.description,
             type: 'alexandria_book',
-            imageURI: nftData.imageURI || "",
-            totalSupply: nftData.totalSupply || 1, // Typically 1 for Alexandria books
-            maxSupply: nftData.maxSupply,
-            creator: nftData.creator,
-            format: nftData.format || 'Digital Book',
+            imageURI: alexandriaMetadata.imageUrl,
+            contentURI: alexandriaMetadata.readingUrl,
+            totalSupply: bookData.totalSupply || 1,
+            creator: alexandriaMetadata.author,
+            format: 'Digital Book',
             additionalData: {
-              ...nftData.additionalData,
-              author: nftData.metadata?.author || nftData.additionalData?.author
+              author: alexandriaMetadata.author,
+              publisher: alexandriaMetadata.publisher,
+              pageCount: alexandriaMetadata.pageCount,
+              language: alexandriaMetadata.language,
+              publicationDate: alexandriaMetadata.publicationDate,
+              exoplanet: alexandriaMetadata.exoplanet
             }
           };
         }
@@ -149,18 +154,44 @@ export const fetchCollectionTokenBatch = async (address, chain, tokenIds = [], o
     const contract = getContractByAddress(address, chain) || {
       address,
       chain,
-      type: 'nft' // Default type if not found in registry
+      type: 'book' // Default type if not found in registry
     };
     
     // Prepare query params
-    const assetType = options.assetType || contract.type;
+    const assetType = options.assetType || contract.type || 'book';
     const includeOwnership = options.includeOwnership ? 'true' : 'false';
+    
+    console.log(`Fetching batch with assetType: ${assetType} for ${tokenIds.length} tokens`);
     
     // Call the batch endpoint
     const batchUrl = `/.netlify/functions/nft/batch/${address}/${chain}?assetType=${assetType}&tokenIds=${tokenIds.join(',')}&includeOwnership=${includeOwnership}`;
-    const response = await api.get(batchUrl);
+    console.log(`Batch URL: ${batchUrl}`);
     
-    return response.data;
+    const response = await api.get(batchUrl);
+    console.log("Full batch response:", response.data);
+    
+    // Extract items from the response, handling the nested structure
+    let items = [];
+    if (response.data && response.data.success) {
+      if (response.data.data && response.data.data.items) {
+        items = response.data.data.items;
+      } else if (Array.isArray(response.data.data)) {
+        items = response.data.data;
+      }
+    }
+    
+    // If we didn't get any items, there might be an issue with the token IDs
+    if (items.length === 0) {
+      console.log("No items found in batch response. The token IDs might not exist or the contract may have a different structure.");
+      
+      // We could try a different range of token IDs here, but it's difficult to guess
+      // without knowing the contract's implementation details
+    }
+    
+    return {
+      items: items,
+      originalResponse: response.data
+    };
   } catch (error) {
     console.error('Error fetching token batch:', error);
     throw error;
@@ -211,39 +242,32 @@ export const fetchCollectionDetail = async (address, chain, page = 1, pageSize =
       }
     }
     
-    // Special handling for Alexandria books (Base chain)
-    const isAlexandriaBook = chain === 'base';
-    const assetType = isAlexandriaBook ? 'alexandria_book' : undefined;
+    // Get contract from registry to ensure we have the type
+    const contractInfo = getContractByAddress(address, chain);
+    const assetType = contractInfo?.type || 'book'; // Default to 'book' if not found
     
-    // Step 1: Get collection info with specific asset type if needed
-    const collectionData = await fetchCollectionInfo(address, chain, assetType);
+    console.log(`Fetching collection with address: ${address}, chain: ${chain}, assetType: ${assetType}`);
     
-    // Create a collection object with enhanced fields for Alexandria
+    // Step 1: Get collection info
+    const collectionData = await fetchCollectionInfo(address, chain);
+    console.log("Collection info response:", collectionData);
+    
+    // Create a collection object, ensuring assetType is set
     const collection = {
       contractAddress: address,
       chain: chain,
-      name: collectionData.name || "Unknown Collection",
-      description: collectionData.description || "",
-      type: isAlexandriaBook ? 'alexandria_book' : collectionData.assetType,
+      name: collectionData.name || contractInfo?.name || "Unknown Collection",
+      description: collectionData.description || contractInfo?.description || "",
+      type: assetType, // Use the type from our registry
       imageURI: collectionData.imageURI || "",
       totalSupply: collectionData.totalSupply,
       maxSupply: collectionData.maxSupply,
       creator: collectionData.creator,
-      format: collectionData.format || (isAlexandriaBook ? 'Digital Book' : '')
+      format: collectionData.format
     };
     
-    // For Alexandria books, add additional metadata
-    if (isAlexandriaBook && collectionData.metadata) {
-      collection.additionalData = {
-        ...(collection.additionalData || {}),
-        author: collectionData.metadata.author || collectionData.additionalData?.author,
-        publisher: 'Alexandria Labs',
-        coverArtist: collectionData.metadata.coverArtist || collectionData.metadata.artist
-      };
-    }
-    
     // Step 2: Calculate token IDs for this page
-    const startTokenId = (page - 1) * pageSize + 1;
+    const startTokenId = (page - 1) * pageSize + 1; // Start at token ID 1
     const endTokenId = startTokenId + pageSize - 1;
     const totalItems = collection.totalSupply || 100; // Default to 100 if unknown
     
@@ -255,46 +279,52 @@ export const fetchCollectionDetail = async (address, chain, page = 1, pageSize =
       }
     }
     
-    // Step 3: Fetch tokens in smaller batches to avoid timeouts
+    console.log(`Attempting to fetch tokens with IDs: ${tokenIds.join(', ')}`);
+    
+    // Step 3: Fetch the batch of tokens - explicitly pass assetType
     let items = [];
     if (tokenIds.length > 0) {
-      // Split into smaller batches of 5 tokens each
-      const batchSize = 5;
-      const batches = [];
-      
-      for (let i = 0; i < tokenIds.length; i += batchSize) {
-        batches.push(tokenIds.slice(i, i + batchSize));
-      }
-      
-      console.log(`Fetching ${batches.length} batches of tokens`);
-      
-      // Process each batch with a longer timeout
-      for (const batchTokens of batches) {
-        try {
-          const batchUrl = `/.netlify/functions/nft/batch/${address}/${chain}?assetType=${collection.type}&tokenIds=${batchTokens.join(',')}&includeOwnership=true`;
-          console.log(`Fetching tokens batch from: ${batchUrl}`);
+      try {
+        const batchResult = await fetchCollectionTokenBatch(address, chain, tokenIds, {
+          assetType: assetType  // Use our preserved assetType
+        });
+        console.log("Extracted items:", batchResult.items);
+        
+        items = batchResult.items || [];
+        
+        // If we still don't have items, we could try a different range of token IDs
+        if (items.length === 0 && totalItems > 0) {
+          console.log("Trying alternative token ID range...");
           
-          // Create a special instance with longer timeout just for this request
-          const batchResponse = await axios({
-            method: 'get',
-            url: batchUrl,
-            baseURL: API_BASE_URL,
-            timeout: 30000, // 30 seconds timeout for batch requests
-            headers: {
-              'Content-Type': 'application/json',
+          // Some contracts start at 0, others have a different numbering scheme
+          // Try a few different possibilities
+          const alternativeTokenIds = ['0']; // Try token ID 0
+          
+          // You could also try random IDs within the totalSupply range
+          if (totalItems > 10) {
+            for (let i = 0; i < 3; i++) {
+              const randomId = Math.floor(Math.random() * totalItems) + 1;
+              alternativeTokenIds.push(randomId.toString());
             }
+          }
+          
+          console.log(`Trying alternative token IDs: ${alternativeTokenIds.join(', ')}`);
+          
+          const altBatchResult = await fetchCollectionTokenBatch(address, chain, alternativeTokenIds, {
+            assetType: assetType
           });
           
-          // Add these items to our collection
-          if (batchResponse.data?.data?.items) {
-            items = [...items, ...batchResponse.data.data.items];
+          if (altBatchResult.items && altBatchResult.items.length > 0) {
+            items = altBatchResult.items;
+            console.log(`Found ${items.length} items with alternative token IDs`);
           }
-        } catch (batchError) {
-          console.warn(`Error fetching batch ${batchTokens.join(',')}: ${batchError.message}`);
-          // Continue with other batches even if one fails
         }
+      } catch (error) {
+        console.error("Error during batch fetch:", error);
       }
     }
+    
+    console.log(`Found ${items.length} items for collection`);
     
     // Return the combined result with pagination info
     return {

@@ -27,8 +27,8 @@ export const trackedContracts = [
     // Polygon - Readme books
     {
       chain: 'polygon',
-      address: '0x931204fb8cea7f7068995dce924f0d76d571df99',
-      type: 'readme_book',
+      address: '0x931204Fb8CEA7F7068995dcE924F0d76d571DF99',
+      type: 'book',
       name: 'Readme Books by PageDAO'
     }
   ];

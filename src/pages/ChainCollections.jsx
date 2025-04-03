@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { fetchCollections } from '../services/api';
 import NFTCard from '../components/nft/NFTCard';
+// Add this import
+import { isAlexandriaBook, extractAlexandriaMetadata } from '../utils/alexandriaUtils';
 
 function ChainCollections() {
   const { chainId } = useParams();
@@ -12,9 +14,9 @@ function ChainCollections() {
   // Define featured collections by chain
   const featuredCollections = {
     base: {
-      title: "Alexandria Labs",
-      description: "Digital-first publisher building on Base. Each book is its own smart contract, giving authors true digital ownership of their work with built-in revenue sharing.",
-      contractAddress: "0x64E2C384738b9Ca2C1820a00B3C2067B8213640e", // Featured book address
+      title: "Alexandria Books", // Generic title that will be replaced with actual title
+      description: "Digital-first publisher pushing the boundaries of decentralized publishing with tools for authors to create and distribute their work.",
+      contractAddress: "0x64E2C384738b9Ca2C1820a00B3C2067B8213640e",
       image: "/images/featured/alexandria-books.jpg"
     },
     polygon: {
@@ -95,20 +97,51 @@ function ChainCollections() {
         // Check the data structure
         const items = response.data?.items || [];
         
-        // Debug Alexandria collections
+        // Special handling for Alexandria books on Base chain
         if (chainId === 'base') {
-          console.log('Alexandria collections:', items);
-          items.forEach((item, index) => {
-            console.log(`Collection ${index}:`, {
-              contractAddress: item.contractAddress,
-              chain: item.chain,
-              name: item.name || item.title,
-              hasValidLink: !!(item.contractAddress && item.chain)
-            });
-          });
+          console.log('Processing Alexandria collections');
+          
+          // For each Alexandria book, ensure it has the proper metadata
+          const enhancedItems = await Promise.all(items.map(async (item) => {
+            // Check if this is an Alexandria book that needs title enhancement
+            if (isAlexandriaBook(item) && (!item.title || item.title.includes('Collection'))) {
+              try {
+                console.log(`Enhancing metadata for Alexandria book: ${item.contractAddress}`);
+                
+                const url = `/.netlify/functions/nft/${item.contractAddress}/${item.chain}/1?assetType=alexandria_book`;
+                const response = await api.get(url);
+                
+                const bookData = response.data;
+                const alexandriaMetadata = extractAlexandriaMetadata(bookData);
+                
+                // Update the item with the enhanced metadata
+                return {
+                  ...item,
+                  title: alexandriaMetadata.title || item.title,
+                  name: alexandriaMetadata.title || item.name,
+                  imageURI: alexandriaMetadata.imageUrl || item.imageURI,
+                  contentURI: alexandriaMetadata.readingUrl || item.contentURI,
+                  additionalData: {
+                    ...item.additionalData,
+                    author: alexandriaMetadata.author || item.additionalData?.author
+                  }
+                };
+              } catch (err) {
+                console.error(`Error enhancing Alexandria metadata for ${item.contractAddress}:`, err);
+                return item;
+              }
+            }
+            
+            // Return the original item if no enhancement needed
+            return item;
+          }));
+          
+          setCollections(enhancedItems);
+        } else {
+          // For non-Base chains, just use the items directly
+          setCollections(items);
         }
         
-        setCollections(items);
         setLoading(false);
       } catch (err) {
         console.error('Error fetching collections:', err);
@@ -126,6 +159,67 @@ function ChainCollections() {
   const featuredCollection = featured
     ? collections.find(c => c.contractAddress.toLowerCase() === featured.contractAddress.toLowerCase())
     : null;
+  
+  // For Base chain (Alexandria), we might need to fetch token #1 to get proper book title
+  useEffect(() => {
+    // This code runs after collections are fetched
+    if (featuredCollection && chainId === 'base' && 
+        (featuredCollection.name.includes('Collection') || !featuredCollection.title)) {
+      const fetchAlexandriaBookData = async () => {
+        try {
+          console.log('Fetching Alexandria book details for featured collection');
+          
+          // Directly fetch the token #1 for this collection
+          const bookResponse = await fetch(
+            `/.netlify/functions/nft/${featuredCollection.contractAddress}/base/1?assetType=alexandria_book`
+          );
+          
+          if (!bookResponse.ok) {
+            throw new Error(`API responded with status: ${bookResponse.status}`);
+          }
+          
+          const bookData = await bookResponse.json();
+          console.log('Alexandria book data response:', bookData);
+          
+          // Extract the real title from various possible locations in the response
+          const metadata = bookData.metadata || bookData;
+          let bookTitle = null;
+          
+          if (metadata.name && !metadata.name.includes('Collection')) {
+            bookTitle = metadata.name.replace(/ #\d+$/, '');
+          } else if (metadata.properties?.title) {
+            bookTitle = metadata.properties.title;
+          } else if (metadata.properties?.work) {
+            bookTitle = metadata.properties.work;
+          } else if (metadata.title) {
+            bookTitle = metadata.title;
+          }
+          
+          if (bookTitle) {
+            console.log(`Found real Alexandria book title: ${bookTitle}`);
+            
+            // Update the collections array to use this title
+            setCollections(prevCollections => {
+              return prevCollections.map(collection => {
+                if (collection.contractAddress === featuredCollection.contractAddress) {
+                  return {
+                    ...collection,
+                    title: bookTitle,
+                    name: bookTitle
+                  };
+                }
+                return collection;
+              });
+            });
+          }
+        } catch (err) {
+          console.error('Error fetching Alexandria book details:', err);
+        }
+      };
+      
+      fetchAlexandriaBookData();
+    }
+  }, [featuredCollection, chainId]);
   
   // Filter out the featured collection from the regular list
   const regularCollections = featuredCollection
@@ -216,7 +310,8 @@ function ChainCollections() {
                 <div className="w-full lg:w-2/3">
                   <div className="flex flex-wrap items-center mb-3">
                     <h3 className="text-2xl font-bold text-gray-900 dark:text-white mr-3">
-                      {featuredCollection?.name || featured.title}
+                      {/* Prioritize the real title over the hardcoded or registry name */}
+                      {featuredCollection?.title || featuredCollection?.name || featured.title}
                     </h3>
                     <span 
                       className="px-2 py-1 text-xs font-semibold rounded text-white mt-1"

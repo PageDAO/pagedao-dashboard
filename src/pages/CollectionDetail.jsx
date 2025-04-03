@@ -83,7 +83,7 @@ useEffect(() => {
     if (collection.type === 'alexandria_book' || collection.chain === 'base') return 'Alexandria Book';
     if (collection.type === 'mirror_publication') return 'Mirror Publication';
     if (collection.type === 'zora_nft' || collection.chain === 'zora') return 'Zora NFT';
-    if (collection.type === 'readme_book' || collection.chain === 'polygon') return 'Readme Book';
+    if (collection.type === 'book' || collection.chain === 'polygon') return 'Readme Book';
     return 'NFT Collection';
   };
   
@@ -138,170 +138,200 @@ useEffect(() => {
       
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">
-          Publication Details
+          {collection.name || collection.title || "Publication Details"}
+          {collection.chain === 'base' && (
+            <span className="ml-2 px-2 py-1 text-xs font-semibold rounded text-white" 
+              style={{ backgroundColor: getChainColor(collection.chain) }}>
+              Alexandria Book
+            </span>
+          )}
         </h2>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {collection.creator && (
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Creator</h3>
-              <p className="text-gray-800 dark:text-white break-all">
-                {collection.creator}
-              </p>
+        {/* Add book cover display for Alexandria books */}
+        {collection.chain === 'base' && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-lg mb-6">
+            <div className="flex flex-col md:flex-row">
+              {/* Book cover */}
+              <div className="md:w-1/3 mb-6 md:mb-0 md:pr-6">
+                <img 
+                  src={collection.imageURI || '/images/placeholder-cover.png'} 
+                  alt={collection.title || 'Book cover'} 
+                  className="w-full h-auto rounded-lg shadow-md"
+                  onError={(e) => { e.target.src = '/images/placeholder-cover.png' }}
+                />
+              </div>
+              
+              {/* Book details */}
+              <div className="md:w-2/3">
+                <h2 className="text-2xl font-bold text-blue-800 dark:text-blue-300 mb-2">
+                  {collection.title || collection.name}
+                </h2>
+                
+                {collection.additionalData?.author && (
+                  <p className="text-lg font-medium text-blue-700 dark:text-blue-200 mb-4">
+                    by {collection.additionalData.author}
+                  </p>
+                )}
+                
+                <div className="mb-4 text-blue-700 dark:text-blue-200">
+                  {collection.description && (
+                    <p className="mb-4">{collection.description?.substring(0, 500)}
+                      {collection.description?.length > 500 ? '...' : ''}
+                    </p>
+                  )}
+                  
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    {collection.additionalData?.publisher && (
+                      <div>
+                        <span className="font-semibold">Publisher:</span> {collection.additionalData.publisher}
+                      </div>
+                    )}
+                    
+                    {collection.additionalData?.pageCount && (
+                      <div>
+                        <span className="font-semibold">Pages:</span> {collection.additionalData.pageCount}
+                      </div>
+                    )}
+                    
+                    {collection.additionalData?.language && (
+                      <div>
+                        <span className="font-semibold">Language:</span> {collection.additionalData.language}
+                      </div>
+                    )}
+                    
+                    {collection.totalSupply && (
+                      <div>
+                        <span className="font-semibold">Total Editions:</span> {collection.totalSupply}
+                      </div>
+                    )}
+                    
+                    {collection.additionalData?.exoplanet && (
+                      <div>
+                        <span className="font-semibold">Exoplanet:</span> {collection.additionalData.exoplanet}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {collection.contentURI && (
+                  <a 
+                    href={collection.contentURI}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  >
+                    Read Book
+                    <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+                    </svg>
+                  </a>
+                )}
+              </div>
             </div>
-          )}
-          
-          {collection.format && (
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Format</h3>
-              <p className="text-gray-800 dark:text-white">{collection.format}</p>
-            </div>
-          )}
-          
-          {collection.totalSupply !== undefined && (
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Supply</h3>
-              <p className="text-gray-800 dark:text-white">{collection.totalSupply}</p>
-            </div>
-          )}
-          
-          {collection.additionalData?.publisher && (
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Publisher</h3>
-              <p className="text-gray-800 dark:text-white">{collection.additionalData.publisher}</p>
-            </div>
-          )}
-          
-          {collection.additionalData?.author && (
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Author</h3>
-              <p className="text-gray-800 dark:text-white">{collection.additionalData.author}</p>
-            </div>
-          )}
-          
-          {collection.features && (
-            <div className="mt-4">
-              <h3 className="text-lg font-semibold mb-2">Features</h3>
-              <ul className="list-disc pl-5">
-                {collection.features.map((feature, index) => (
-                  <li key={index} className="text-gray-700 dark:text-gray-300">{feature}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          
-          {collection.historicalSignificance && (
-            <div className="mt-4 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-md">
-              <span className="font-semibold">Historical Significance:</span> {collection.historicalSignificance}
-            </div>
-          )}
-          
-          {/* Add more fields based on what's available in additionalData */}
-        </div>
-        
-        {collection.contentURI && (
-          <div className="mt-6">
-            <a 
-              href={collection.contentURI}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-            >
-              View Content
-            </a>
           </div>
         )}
       </div>
       
       <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">Collection Items</h2>
       
+      {collection.chain === 'base' && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg mb-6">
+          <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-2">
+            About This Alexandria Book
+          </h3>
+          <p className="text-blue-700 dark:text-blue-200">
+            This is a digital book published on Base through Alexandria Labs. 
+            Each token represents a unique edition of the same book content.
+            {collection.additionalData?.editionInfo && (
+              <span className="block mt-1">
+                This book has {collection.additionalData.editionInfo}.
+              </span>
+            )}
+          </p>
+        </div>
+      )}
+      
       {items.length === 0 ? (
         <div className="text-center text-gray-500 py-8 bg-white dark:bg-gray-800 rounded-lg shadow-md">
           No items found for this collection.
         </div>
       ) : (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {items.map((item) => (
-              <Link 
-                key={item.id || item.tokenId} 
-                to={`/collections/${address}/${item.tokenId}?chain=${chain}`}
-                className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
-              >
-                <div className="aspect-[3/4] bg-gray-100 dark:bg-gray-900 p-2">
-                  <img 
-                    src={item.imageURI || '/images/placeholder-item.png'} 
-                    alt={item.title || `Item #${item.tokenId}`} 
-                    className="w-full h-full object-contain"
-                    onError={(e) => {
-                      e.target.src = '/images/placeholder-item.png';
-                    }}
-                  />
-                </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {items.map((item) => (
+            <div 
+              key={item.id || item.tokenId} 
+              className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden"
+            >
+              <img 
+                src={item.imageURI || collection.imageURI || '/images/placeholder-item.png'} 
+                alt={item.title || `Item #${item.tokenId}`} 
+                className="w-full h-48 object-cover"
+                onError={(e) => {
+                  e.target.src = '/images/placeholder-item.png';
+                }}
+              />
+              
+              <div className="p-4">
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-1 truncate">
+                  {collection.chain === 'base' 
+                    ? `Edition #${item.tokenId}` 
+                    : (item.title || `Item #${item.tokenId}`)}
+                </h3>
                 
-                <div className="p-4">
-                  <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-1 truncate">
-                    {item.title || `Item #${item.tokenId}`}
-                  </h3>
-                  
+                {collection.chain !== 'base' && (
                   <p className="text-sm text-gray-600 dark:text-gray-300 h-10 overflow-hidden">
                     {item.description?.substring(0, 60)}
                     {item.description?.length > 60 ? '...' : ''}
                   </p>
-                  
-                  <div className="flex justify-between items-center mt-2">
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      Token ID: {item.tokenId}
-                    </div>
-                    {item.contentURI && (
-                      <div className="mt-2 text-right">
-                        <a 
-                          href={item.contentURI}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center text-blue-500 hover:text-blue-700 text-sm font-medium"
-                        >
-                          Readme
-                          <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-                          </svg>
-                        </a>
-                      </div>
-                    )}
+                )}
+                
+                <div className="flex justify-between items-center mt-2">
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    Token ID: {item.tokenId}
                   </div>
+                  {item.contentURI && (
+                    <a 
+                      href={item.contentURI} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-500 text-xs hover:text-blue-700"
+                    >
+                      View Content
+                    </a>
+                  )}
                 </div>
-              </Link>
-            ))}
-          </div>
-          
-          {/* Pagination controls */}
-          <div className="mt-8 flex justify-between items-center">
-            <button
-              onClick={handlePrevPage}
-              disabled={page <= 1}
-              className={`px-4 py-2 rounded ${page > 1 
-                ? 'bg-blue-500 text-white hover:bg-blue-600' 
-                : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
-            >
-              Previous Page
-            </button>
-            
-            <span className="text-gray-600 dark:text-gray-300">
-              Page {page}
-            </span>
-            
-            <button
-              onClick={handleNextPage}
-              disabled={items.length < pageSize}
-              className={`px-4 py-2 rounded ${items.length >= pageSize 
-                ? 'bg-blue-500 text-white hover:bg-blue-600' 
-                : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
-            >
-              Next Page
-            </button>
-          </div>
-        </>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
+      
+      {/* Pagination controls */}
+      <div className="mt-8 flex justify-between items-center">
+        <button
+          onClick={handlePrevPage}
+          disabled={page <= 1}
+          className={`px-4 py-2 rounded ${page > 1 
+            ? 'bg-blue-500 text-white hover:bg-blue-600' 
+            : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+        >
+          Previous Page
+        </button>
+        
+        <span className="text-gray-600 dark:text-gray-300">
+          Page {page}
+        </span>
+        
+        <button
+          onClick={handleNextPage}
+          disabled={items.length < pageSize}
+          className={`px-4 py-2 rounded ${items.length >= pageSize 
+            ? 'bg-blue-500 text-white hover:bg-blue-600' 
+            : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+        >
+          Next Page
+        </button>
+      </div>
       
       <div className="mt-8 text-center text-gray-500 text-sm">
         <p>Using PageDAO API to fetch on-chain NFT data</p>

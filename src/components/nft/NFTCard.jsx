@@ -1,6 +1,7 @@
 // src/components/nft/NFTCard.jsx
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { isAlexandriaBook } from '../../utils/alexandriaUtils';
 
 function NFTCard({ collection }) {
   // Chain-specific styling
@@ -18,11 +19,28 @@ function NFTCard({ collection }) {
   // Get collection type based on type or chain
   const getCollectionType = () => {
     if (!collection) return 'NFT Collection';
-    if (collection.type === 'alexandria_book' || collection.chain === 'base') return 'Alexandria Book';
+    
+    // Is this an Alexandria book?
+    if (isAlexandriaBook(collection)) {
+      return 'Alexandria Book';
+    }
+    
     if (collection.type === 'mirror_publication') return 'Mirror Publication';
     if (collection.type === 'zora_nft' || collection.chain === 'zora') return 'Zora NFT';
-    if (collection.type === 'readme_book' || collection.chain === 'polygon') return 'Readme Book';
+    if (collection.type === 'book' || collection.chain === 'polygon') return 'Readme Book';
     return 'NFT Collection';
+  };
+  
+  // Generate additional status badges or info
+  const getCollectionBadge = () => {
+    if (isAlexandriaBook(collection) && collection.additionalData?.author) {
+      return (
+        <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+          by {collection.additionalData.author}
+        </p>
+      );
+    }
+    return null;
   };
   
   // Handle when collection data is incomplete
@@ -48,28 +66,49 @@ function NFTCard({ collection }) {
         <h3 className="text-lg font-semibold text-gray-800 dark:text-white truncate">
           {collection.title || collection.name || 'Untitled Collection'}
         </h3>
+        
+        {getCollectionBadge()}
+        
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
           {collection.format && `Format: ${collection.format}`}
         </p>
-        {/* Add additional metadata fields as needed */}
-        {collection.additionalData?.author && (
-          <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-            By: {collection.additionalData.author}
-          </p>
-        )}
-        {/* View details link or info */}
-        <div className="mt-3 flex items-center text-sm">
-          {hasValidLink ? (
-            <span className="text-blue-500 hover:text-blue-700">
-              View details
-              <svg className="ml-1 inline w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
+        
+        {/* Add collection type indicator */}
+        <div className="mt-2">
+          <span className="inline-block px-2 py-1 text-xs font-semibold rounded" 
+            style={{ 
+              backgroundColor: getChainColor(collection.chain),
+              color: 'white' 
+            }}>
+            {getCollectionType()}
+          </span>
+        </div>
+        
+        {/* Links */}
+        <div className="mt-3 flex flex-wrap">
+          <Link 
+            to={`/collections/${collection.contractAddress}?chain=${collection.chain}`}
+            className="inline-flex items-center text-sm text-blue-500 hover:text-blue-700 mr-4"
+          >
+            View details
+            <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </Link>
+          
+          {/* Special Alexandria link */}
+          {isAlexandriaBook(collection) && collection.contentURI && (
+            <a 
+              href={collection.contentURI}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center text-sm text-purple-500 hover:text-purple-700 mt-1 sm:mt-0"
+            >
+              Read on Alexandria
+              <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
               </svg>
-            </span>
-          ) : (
-            <span className="text-gray-400">
-              Details unavailable
-            </span>
+            </a>
           )}
         </div>
       </div>
