@@ -1,6 +1,7 @@
+// src/pages/ChainCollections.jsx - Simplified version
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { fetchCollections } from '../services/api';
+import { fetchRegistry } from '../services/registryService';
 import NFTCard from '../components/nft/NFTCard';
 
 function ChainCollections() {
@@ -8,46 +9,6 @@ function ChainCollections() {
   const [collections, setCollections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  // Define featured collections by chain
-  const featuredCollections = {
-    base: {
-      title: "Base Literature",
-      description: "Digital-first literature published on the Base blockchain. Explore a variety of books and publications in this growing ecosystem.",
-      contractAddress: "", 
-      image: "/images/featured/base-books.jpg"
-    },
-    optimism: {
-      title: "Builder blog posts by IPFSnut",
-      description: "Community-created articles and essays published through Mirror protocol. Mirror provides decentralized publishing with built-in monetization and governance tools.",
-      contractAddress: "0x8338c8e0e3e713ee2502c526f4840657be9fb350",
-      image: "/images/featured/mirror-essays.jpg"  
-    },
-    polygon: {
-      title: "Readme Books",
-      description: "Community-curated literature and essays published as NFTs on Polygon, focusing on accessibility and low gas fees for publishing creative works.",
-      contractAddress: "0x931204fb8cea7f7068995dce924f0d76d571df99",
-      image: "/images/featured/readme-books.jpg"
-    },
-    ethereum: {
-      title: "Origin Stories",
-      description: "The original NFT book collection published on Ethereum mainnet. These pioneering works established the foundation for blockchain literature.",
-      contractAddress: "0xf5C424C8c5502135ea9A22bEc42Bb98Fe93A64d9",
-      image: "/images/featured/origin-stories.jpg"
-    },
-    zora: {
-      title: "Zora Publications",
-      description: "Community-led creative works hosted on Zora's platform, emphasizing creator ownership and fair compensation models.",
-      contractAddress: "0xabcdef1234567890abcdef1234567890",
-      image: "/images/featured/zora-publications.jpg"
-    },
-    optimism: {
-      title: "Optimism Publications",
-      description: "Web3 literature published on Optimism, featuring lower fees and faster transaction times while maintaining Ethereum security.",
-      contractAddress: "0xa1b2c3d4e5f67890a1b2c3d4e5f67890",
-      image: "/images/featured/optimism-publications.jpg"
-    }
-  };
   
   // Chain metadata
   const chainInfo = {
@@ -89,61 +50,25 @@ function ChainCollections() {
     description: 'Blockchain literature collections'
   };
   
-  // Featured collection for this chain
-  const featured = featuredCollections[chainId];
-  
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await fetchCollections(chainId, 24);
+        const registry = await fetchRegistry();
         
-        // Check the data structure
-        const items = response.data?.items || [];
-        
-        // Special handling for Alexandria books on Base chain
-        if (chainId === 'base') {
-          console.log('Processing Alexandria collections');
-          
-          // For each Alexandria book, ensure it has the proper metadata
-          const enhancedItems = await Promise.all(items.map(async (item) => {
-            // Check if this is an Alexandria book that needs title enhancement
-            if (isAlexandriaBook(item) && (!item.title || item.title.includes('Collection'))) {
-              try {
-                console.log(`Enhancing metadata for Alexandria book: ${item.contractAddress}`);
-                
-                const url = `/.netlify/functions/nft/${item.contractAddress}/${item.chain}/1?assetType=alexandria_book`;
-                const response = await api.get(url);
-                
-                const bookData = response.data;
-                const alexandriaMetadata = extractAlexandriaMetadata(bookData);
-                
-                // Update the item with the enhanced metadata
-                return {
-                  ...item,
-                  title: alexandriaMetadata.title || item.title,
-                  name: alexandriaMetadata.title || item.name,
-                  imageURI: alexandriaMetadata.imageUrl || item.imageURI,
-                  contentURI: alexandriaMetadata.readingUrl || item.contentURI,
-                  additionalData: {
-                    ...item.additionalData,
-                    author: alexandriaMetadata.author || item.additionalData?.author
-                  }
-                };
-              } catch (err) {
-                console.error(`Error enhancing Alexandria metadata for ${item.contractAddress}:`, err);
-                return item;
-              }
-            }
-            
-            // Return the original item if no enhancement needed
-            return item;
+        if (chainId && registry[chainId]) {
+          // Transform registry data into the format expected by components
+          const chainCollections = registry[chainId].map(collection => ({
+            ...collection,
+            chain: chainId,
+            contractAddress: collection.address,
+            imageURI: collection.image,
+            title: collection.name
           }));
           
-          setCollections(enhancedItems);
+          setCollections(chainCollections);
         } else {
-          // For non-Base chains, just use the items directly
-          setCollections(items);
+          setCollections([]);
         }
         
         setLoading(false);
@@ -158,77 +83,6 @@ function ChainCollections() {
       fetchData();
     }
   }, [chainId]);
-  
-  // Find featured collection in our data if it exists
-  const featuredCollection = featured
-    ? collections.find(c => c.contractAddress.toLowerCase() === featured.contractAddress.toLowerCase())
-    : null;
-  
-  // For Base chain (Alexandria), we might need to fetch token #1 to get proper book title
-  useEffect(() => {
-    // This code runs after collections are fetched
-    if (featuredCollection && chainId === 'base' && 
-        (featuredCollection.name.includes('Collection') || !featuredCollection.title)) {
-      const fetchAlexandriaBookData = async () => {
-        try {
-          console.log('Fetching Alexandria book details for featured collection');
-          
-          // Directly fetch the token #1 for this collection
-          const bookResponse = await fetch(
-            `/.netlify/functions/nft/${featuredCollection.contractAddress}/base/1?assetType=alexandria_book`
-          );
-          
-          if (!bookResponse.ok) {
-            throw new Error(`API responded with status: ${bookResponse.status}`);
-          }
-          
-          const bookData = await bookResponse.json();
-          console.log('Alexandria book data response:', bookData);
-          
-          // Extract the real title from various possible locations in the response
-          const metadata = bookData.metadata || bookData;
-          let bookTitle = null;
-          
-          if (metadata.name && !metadata.name.includes('Collection')) {
-            bookTitle = metadata.name.replace(/ #\d+$/, '');
-          } else if (metadata.properties?.title) {
-            bookTitle = metadata.properties.title;
-          } else if (metadata.properties?.work) {
-            bookTitle = metadata.properties.work;
-          } else if (metadata.title) {
-            bookTitle = metadata.title;
-          }
-          
-          if (bookTitle) {
-            console.log(`Found real Alexandria book title: ${bookTitle}`);
-            
-            // Update the collections array to use this title
-            setCollections(prevCollections => {
-              return prevCollections.map(collection => {
-                if (collection.contractAddress === featuredCollection.contractAddress) {
-                  return {
-                    ...collection,
-                    title: bookTitle,
-                    name: bookTitle
-                  };
-                }
-                return collection;
-              });
-            });
-          }
-        } catch (err) {
-          console.error('Error fetching Alexandria book details:', err);
-        }
-      };
-      
-      fetchAlexandriaBookData();
-    }
-  }, [featuredCollection, chainId]);
-  
-  // Filter out the featured collection from the regular list
-  const regularCollections = featuredCollection
-    ? collections.filter(c => c.contractAddress.toLowerCase() !== featured.contractAddress.toLowerCase())
-    : collections;
   
   // Loading state
   if (loading) {
@@ -248,6 +102,9 @@ function ChainCollections() {
       </div>
     );
   }
+  
+  // Find featured collection (first one or with featured=true)
+  const featuredCollection = collections.find(c => c.featured) || collections[0];
   
   return (
     <div className="container mx-auto px-4 py-6">
@@ -288,7 +145,7 @@ function ChainCollections() {
       </div>
       
       {/* Featured Collection */}
-      {(featuredCollection || featured) && (
+      {featuredCollection && (
         <div className="mb-10">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">
             Featured Collection
@@ -301,8 +158,8 @@ function ChainCollections() {
                 <div className="w-full lg:w-1/3 mb-6 lg:mb-0 lg:pr-6">
                   <div className="bg-gray-100 dark:bg-gray-900 rounded-lg p-2">
                     <img 
-                      src={featuredCollection?.imageURI || featured.image || '/images/placeholder-cover.png'} 
-                      alt={featuredCollection?.name || featured.title} 
+                      src={featuredCollection.imageURI || '/images/placeholder-cover.png'} 
+                      alt={featuredCollection.title || featuredCollection.name} 
                       className="w-full h-auto rounded-lg object-contain"
                       style={{ maxHeight: '320px' }}
                       onError={(e) => {
@@ -314,8 +171,7 @@ function ChainCollections() {
                 <div className="w-full lg:w-2/3">
                   <div className="flex flex-wrap items-center mb-3">
                     <h3 className="text-2xl font-bold text-gray-900 dark:text-white mr-3">
-                      {/* Prioritize the real title over the hardcoded or registry name */}
-                      {featuredCollection?.title || featuredCollection?.name || featured.title}
+                      {featuredCollection.title || featuredCollection.name}
                     </h3>
                     <span 
                       className="px-2 py-1 text-xs font-semibold rounded text-white mt-1"
@@ -326,33 +182,25 @@ function ChainCollections() {
                   </div>
                   
                   <p className="text-gray-700 dark:text-gray-300 mb-4 text-lg">
-                    {featured.description || featuredCollection?.description}
+                    {featuredCollection.description}
                   </p>
                   
-                  {featuredCollection?.totalSupply && (
+                  {featuredCollection.creator && (
                     <div className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                      Contains {featuredCollection.totalSupply} publications
+                      Creator: {featuredCollection.creator}
                     </div>
                   )}
                   
-                  {featuredCollection && (
-                    <Link 
-                      to={`/collections/${featuredCollection.contractAddress}?chain=${featuredCollection.chain}`}
-                      className="inline-flex items-center px-5 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white"
-                      style={{ backgroundColor: currentChain.color }}
-                    >
-                      Explore Collection
-                      <svg className="ml-2 -mr-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
-                      </svg>
-                    </Link>
-                  )}
-                  
-                  {!featuredCollection && featured && (
-                    <div className="mt-2 text-gray-600 dark:text-gray-400 border-l-4 border-yellow-400 pl-3 py-2 bg-yellow-50 dark:bg-gray-700 rounded">
-                      This collection is defined in the registry but not yet loaded from the blockchain.
-                    </div>
-                  )}
+                  <Link 
+                    to={`/collections/${featuredCollection.contractAddress}?chain=${featuredCollection.chain}`}
+                    className="inline-flex items-center px-5 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white"
+                    style={{ backgroundColor: currentChain.color }}
+                  >
+                    Explore Collection
+                    <svg className="ml-2 -mr-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                  </Link>
                 </div>
               </div>
             </div>
@@ -366,47 +214,26 @@ function ChainCollections() {
           All Collections
         </h2>
         
-        {regularCollections.length > 0 ? (
+        {collections.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {regularCollections.map((collection) => (
-              <Link 
-                key={`${collection.chain}-${collection.contractAddress}`}
-                to={`/collections/${collection.contractAddress}?chain=${collection.chain}`}
-                className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
-              >
-                <div className="aspect-[3/4] bg-gray-100 dark:bg-gray-900 p-2">
-                  <img 
-                    src={collection.imageURI || '/images/placeholder-cover.png'} 
-                    alt={collection.name || 'Collection'} 
-                    className="w-full h-full object-contain"
-                    onError={(e) => {
-                      e.target.src = '/images/placeholder-cover.png';
-                    }}
-                  />
-                </div>
-                
-                <div className="p-4">
-                  <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-1 truncate">
-                    {collection.name || 'Unnamed Collection'}
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-300 h-10 overflow-hidden">
-                    {collection.description?.substring(0, 60)}
-                    {collection.description?.length > 60 ? '...' : ''}
-                  </p>
-                </div>
-              </Link>
-            ))}
+            {collections
+              // Filter out the featured collection if we're showing it at the top
+              .filter(c => featuredCollection ? c.contractAddress !== featuredCollection.contractAddress : true)
+              .map((collection) => (
+                <NFTCard
+                  key={`${collection.chain}-${collection.contractAddress}`}
+                  collection={collection}
+                />
+              ))}
           </div>
         ) : (
           <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md text-center">
             <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            <h3 className="mt-2 text-lg font-medium text-gray-900 dark:text-white">No additional collections found</h3>
+            <h3 className="mt-2 text-lg font-medium text-gray-900 dark:text-white">No collections found</h3>
             <p className="mt-1 text-gray-500 dark:text-gray-400">
-              {featuredCollection 
-                ? "There are no other collections available for this blockchain." 
-                : "No collections have been found for this blockchain."}
+              No collections have been found for this blockchain in the registry.
             </p>
           </div>
         )}

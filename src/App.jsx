@@ -8,11 +8,13 @@ import Dashboard from './pages/Dashboard';
 import TokenDetails from './pages/TokenDetails';
 import TVLAnalytics from './pages/TVLAnalytics';
 import NetworkComparison from './pages/NetworkComparison';
-import Collections from './pages/Collections';
 import CollectionDetail from './pages/CollectionDetail';
 import ChainCollections from './pages/ChainCollections'; 
 import RegistryManager from './components/RegistryManager';
 import BookDetail from './pages/BookDetail';
+import Collections from './pages/Collections';
+
+
 
 
 function App() {

@@ -1,80 +1,163 @@
+// src/components/RegistryManager.jsx
 import React, { useState, useEffect } from 'react';
 import { 
-  getContracts, 
-  addCustomContract, 
-  removeCustomContract 
-} from '../contracts/registry';
+  fetchRegistry, 
+  addCollection, 
+  removeCollection, 
+  updateCollection 
+} from '../services/registryService';
 
 const RegistryManager = () => {
-  const [contracts, setContracts] = useState([]);
+  const [registry, setRegistry] = useState({});
   const [selectedChain, setSelectedChain] = useState('all');
-  const [newContract, setNewContract] = useState({
+  const [collections, setCollections] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [apiKey, setApiKey] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [newCollection, setNewCollection] = useState({
     address: '',
     name: '',
     type: 'book',
+    contentType: '',
+    creator: '',
     description: '',
-    chain: 'ethereum'
+    image: '',
+    url: ''
   });
   
-  // Load contracts on mount and when chain changes
+  // Load the registry on component mount
   useEffect(() => {
-    setContracts(getContracts(selectedChain));
-  }, [selectedChain]);
+    const loadRegistry = async () => {
+      try {
+        setLoading(true);
+        const data = await fetchRegistry();
+        setRegistry(data);
+        setLoading(false);
+      } catch (err) {
+        console.error('Error loading registry:', err);
+        setError('Failed to load registry. Please try again later.');
+        setLoading(false);
+      }
+    };
+    
+    loadRegistry();
+  }, []);
+  
+  // Update collections when chain or registry changes
+  useEffect(() => {
+    if (selectedChain === 'all') {
+      // Flatten all chains into a single array
+      const allCollections = Object.entries(registry).flatMap(([chain, colls]) => 
+        colls.map(coll => ({...coll, chain}))
+      );
+      setCollections(allCollections);
+    } else if (registry[selectedChain]) {
+      // Add chain name to each collection
+      setCollections(registry[selectedChain].map(coll => ({...coll, chain: selectedChain})));
+    } else {
+      setCollections([]);
+    }
+  }, [selectedChain, registry]);
   
   // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setNewContract(prev => ({
+    setNewCollection(prev => ({
       ...prev,
       [name]: value
     }));
   };
   
-  // Handle form submission
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    
-    if (!newContract.address || !newContract.name) {
-      alert('Address and name are required');
-      return;
-    }
-    
-    const success = addCustomContract(newContract.chain, {
-      address: newContract.address,
-      name: newContract.name,
-      type: newContract.type,
-      description: newContract.description
-    });
-    
-    if (success) {
-      // Reset form
-      setNewContract({
-        address: '',
-        name: '',
-        type: 'book',
-        description: '',
-        chain: 'ethereum'
-      });
-      
-      // Refresh contracts list
-      setContracts(getContracts(selectedChain));
+  // Handle authentication
+  const handleAuthenticate = () => {
+    // In a real app, you'd validate the API key properly
+    if (apiKey.trim().length > 0) {
+      setIsAuthenticated(true);
     } else {
-      alert('Contract already exists in registry');
+      alert('Please enter a valid API key');
     }
   };
   
-  // Handle contract removal
-  const handleRemove = (chain, address) => {
-    if (window.confirm('Are you sure you want to remove this contract?')) {
-      const success = removeCustomContract(chain, address);
+  // Handle adding a collection
+  const handleAddCollection = async (e) => {
+    e.preventDefault();
+    
+    if (!isAuthenticated) {
+      alert('You must authenticate first');
+      return;
+    }
+    
+    if (!newCollection.address || !newCollection.name || !newCollection.chain) {
+      alert('Address, name, and chain are required fields');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      await addCollection(newCollection.chain, {
+        address: newCollection.address,
+        name: newCollection.name,
+        type: newCollection.type,
+        contentType: newCollection.contentType,
+        creator: newCollection.creator,
+        description: newCollection.description,
+        image: newCollection.image,
+        url: newCollection.url
+      }, apiKey);
       
-      if (success) {
-        // Refresh contracts list
-        setContracts(getContracts(selectedChain));
+      // Refresh the registry
+      const updatedRegistry = await fetchRegistry();
+      setRegistry(updatedRegistry);
+      
+      // Reset the form
+      setNewCollection({
+        address: '',
+        name: '',
+        type: 'book',
+        contentType: '',
+        creator: '',
+        description: '',
+        image: '',
+        url: '',
+        chain: newCollection.chain
+      });
+      
+      setLoading(false);
+      alert('Collection added successfully!');
+    } catch (err) {
+      console.error('Error adding collection:', err);
+      setError('Failed to add collection. Please try again.');
+      setLoading(false);
+    }
+  };
+  
+  // Handle removing a collection
+  const handleRemoveCollection = async (chain, address) => {
+    if (!isAuthenticated) {
+      alert('You must authenticate first');
+      return;
+    }
+    
+    if (window.confirm('Are you sure you want to remove this collection?')) {
+      try {
+        setLoading(true);
+        await removeCollection(chain, address, apiKey);
+        
+        // Refresh the registry
+        const updatedRegistry = await fetchRegistry();
+        setRegistry(updatedRegistry);
+        
+        setLoading(false);
+        alert('Collection removed successfully!');
+      } catch (err) {
+        console.error('Error removing collection:', err);
+        setError('Failed to remove collection. Please try again.');
+        setLoading(false);
       }
     }
   };
-
+  
   // Get chain color for visual indicators
   const getChainColor = (chain) => {
     const colors = {
@@ -89,77 +172,99 @@ const RegistryManager = () => {
   
   return (
     <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
-      <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">Contract Registry Manager</h2>
+      <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">Registry Manager</h2>
       
-      <div className="mb-8">
-        <label className="block text-gray-700 dark:text-gray-200 mb-2 font-medium">
-          Select Chain:
-          <select 
-            value={selectedChain} 
-            onChange={(e) => setSelectedChain(e.target.value)}
-            className="block w-full md:w-64 mt-1 rounded-md border-gray-300 dark:border-gray-600 
-                       shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 
-                       focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          >
-            <option value="all">All Chains</option>
-            <option value="ethereum">Ethereum</option>
-            <option value="base">Base</option>
-            <option value="optimism">Optimism</option>
-            <option value="polygon">Polygon</option>
-            <option value="zora">Zora</option>
-          </select>
-        </label>
+      {/* Authentication Section */}
+      {!isAuthenticated && (
+        <div className="mb-8 p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+          <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Authentication</h3>
+          <div className="flex items-end gap-4">
+            <div className="flex-grow">
+              <label className="block text-gray-700 dark:text-gray-300 mb-2">API Key</label>
+              <input 
+                type="password" 
+                value={apiKey} 
+                onChange={(e) => setApiKey(e.target.value)}
+                className="w-full p-2 border rounded"
+                placeholder="Enter your API key"
+              />
+            </div>
+            <button 
+              onClick={handleAuthenticate}
+              className="px-4 py-2 bg-blue-600 text-white rounded"
+            >
+              Authenticate
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* Chain Selector */}
+      <div className="mb-6">
+        <label className="block text-gray-700 dark:text-gray-300 mb-2">Chain</label>
+        <select 
+          value={selectedChain} 
+          onChange={(e) => setSelectedChain(e.target.value)}
+          className="w-full p-2 border rounded"
+        >
+          <option value="all">All Chains</option>
+          <option value="ethereum">Ethereum</option>
+          <option value="base">Base</option>
+          <option value="optimism">Optimism</option>
+          <option value="polygon">Polygon</option>
+          <option value="zora">Zora</option>
+        </select>
       </div>
       
-      <div className="mb-10">
-        <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Registered Contracts</h3>
-        {contracts.length === 0 ? (
-          <div className="bg-gray-50 dark:bg-gray-700 p-6 rounded-lg border border-gray-200 dark:border-gray-600">
-            <p className="text-gray-500 dark:text-gray-300">No contracts found for this chain.</p>
+      {/* Collections Table */}
+      <div className="mb-8">
+        <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">
+          Collections {loading && <span className="ml-2 text-sm text-gray-500">(Loading...)</span>}
+        </h3>
+        
+        {error && (
+          <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg">
+            {error}
           </div>
+        )}
+        
+        {collections.length === 0 ? (
+          <p className="text-gray-500 dark:text-gray-400">No collections found.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full bg-white dark:bg-gray-800 rounded-lg overflow-hidden">
-              <thead className="bg-gray-100 dark:bg-gray-700">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead>
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">Address</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">Chain</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">Actions</th>
+                  <th className="px-4 py-2 text-left">Name</th>
+                  <th className="px-4 py-2 text-left">Address</th>
+                  <th className="px-4 py-2 text-left">Chain</th>
+                  <th className="px-4 py-2 text-left">Type</th>
+                  <th className="px-4 py-2 text-left">Creator</th>
+                  <th className="px-4 py-2 text-left">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {contracts.map((contract) => (
-                  <tr key={`${contract.chain}-${contract.address}`} className="hover:bg-gray-50 dark:hover:bg-gray-750">
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-white font-medium">
-                      {contract.name}
+              <tbody>
+                {collections.map((collection, index) => (
+                  <tr key={`${collection.chain}-${collection.address}`} className={index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700' : ''}>
+                    <td className="px-4 py-2">{collection.name}</td>
+                    <td className="px-4 py-2 font-mono text-sm">
+                      {collection.address.substring(0, 6)}...{collection.address.substring(collection.address.length - 4)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <a 
-                        href={`https://${contract.chain === 'ethereum' ? '' : contract.chain + '.'}etherscan.io/address/${contract.address}`} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-blue-600 dark:text-blue-400 hover:underline font-mono text-sm"
+                    <td className="px-4 py-2">
+                      <span 
+                        className="px-2 py-1 rounded-full text-white text-xs"
+                        style={{ backgroundColor: getChainColor(collection.chain) }}
                       >
-                        {contract.address.substring(0, 6)}...{contract.address.substring(38)}
-                      </a>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium" 
-                            style={{ backgroundColor: getChainColor(contract.chain), color: 'white' }}>
-                        {contract.chain}
+                        {collection.chain}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-700 dark:text-gray-300">
-                      {contract.type}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {contract.addedAt && (
+                    <td className="px-4 py-2">{collection.type}</td>
+                    <td className="px-4 py-2">{collection.creator || 'N/A'}</td>
+                    <td className="px-4 py-2">
+                      {isAuthenticated && (
                         <button 
-                          onClick={() => handleRemove(contract.chain, contract.address)}
-                          className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 
-                                    font-medium hover:underline focus:outline-none"
+                          onClick={() => handleRemoveCollection(collection.chain, collection.address)}
+                          className="text-red-600 hover:text-red-800"
                         >
                           Remove
                         </button>
@@ -173,116 +278,144 @@ const RegistryManager = () => {
         )}
       </div>
       
-      <div className="bg-gray-50 dark:bg-gray-700 p-6 rounded-lg border border-gray-200 dark:border-gray-600">
-        <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Add Custom Contract</h3>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-gray-700 dark:text-gray-200 mb-2">
-                Chain:
+      {/* Add Collection Form */}
+      {isAuthenticated && (
+        <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+          <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Add Collection</h3>
+          <form onSubmit={handleAddCollection}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-gray-700 dark:text-gray-300 mb-2">Chain</label>
                 <select 
                   name="chain" 
-                  value={newContract.chain} 
+                  value={newCollection.chain || ''} 
                   onChange={handleInputChange}
-                  className="block w-full mt-1 rounded-md border-gray-300 dark:border-gray-600 
-                           shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 
-                           focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full p-2 border rounded"
                   required
                 >
+                  <option value="">Select Chain</option>
                   <option value="ethereum">Ethereum</option>
                   <option value="base">Base</option>
                   <option value="optimism">Optimism</option>
                   <option value="polygon">Polygon</option>
                   <option value="zora">Zora</option>
                 </select>
-              </label>
-            </div>
-            
-            <div>
-              <label className="block text-gray-700 dark:text-gray-200 mb-2">
-                Type:
+              </div>
+              
+              <div>
+                <label className="block text-gray-700 dark:text-gray-300 mb-2">Type</label>
                 <select 
                   name="type" 
-                  value={newContract.type} 
+                  value={newCollection.type} 
                   onChange={handleInputChange}
-                  className="block w-full mt-1 rounded-md border-gray-300 dark:border-gray-600 
-                           shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 
-                           focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full p-2 border rounded"
+                  required
                 >
                   <option value="book">Book</option>
-                  <option value="alexandria_book">Alexandria Book</option>
-                  <option value="mirror_publication">Mirror Publication</option>
+                  <option value="alexandria-book">Alexandria Book</option>
+                  <option value="publication">Publication</option>
+                  <option value="nft">NFT</option>
                   <option value="zora_nft">Zora NFT</option>
-                  <option value="polygon_book">Polygon Book</option>
-                  <option value="nft">Generic NFT</option>
                 </select>
-              </label>
+              </div>
             </div>
-          </div>
-          
-          <div>
-            <label className="block text-gray-700 dark:text-gray-200 mb-2">
-              Contract Address:
+            
+            <div className="mb-4">
+              <label className="block text-gray-700 dark:text-gray-300 mb-2">Contract Address</label>
               <input 
                 type="text" 
                 name="address" 
-                value={newContract.address} 
+                value={newCollection.address} 
                 onChange={handleInputChange}
+                className="w-full p-2 border rounded"
                 placeholder="0x..."
-                className="block w-full mt-1 rounded-md border-gray-300 dark:border-gray-600 
-                         shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 
-                         focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white 
-                         font-mono"
                 required
               />
-            </label>
-          </div>
-          
-          <div>
-            <label className="block text-gray-700 dark:text-gray-200 mb-2">
-              Collection Name:
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-gray-700 dark:text-gray-300 mb-2">Name</label>
               <input 
                 type="text" 
                 name="name" 
-                value={newContract.name} 
+                value={newCollection.name} 
                 onChange={handleInputChange}
-                placeholder="Collection Name"
-                className="block w-full mt-1 rounded-md border-gray-300 dark:border-gray-600 
-                         shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 
-                         focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="w-full p-2 border rounded"
+                placeholder="Collection name"
                 required
               />
-            </label>
-          </div>
-          
-          <div>
-            <label className="block text-gray-700 dark:text-gray-200 mb-2">
-              Description:
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-gray-700 dark:text-gray-300 mb-2">Content Type</label>
+              <input 
+                type="text" 
+                name="contentType" 
+                value={newCollection.contentType} 
+                onChange={handleInputChange}
+                className="w-full p-2 border rounded"
+                placeholder="novel, blog, anthology, etc."
+              />
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-gray-700 dark:text-gray-300 mb-2">Creator</label>
+              <input 
+                type="text" 
+                name="creator" 
+                value={newCollection.creator} 
+                onChange={handleInputChange}
+                className="w-full p-2 border rounded"
+                placeholder="Creator name"
+              />
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-gray-700 dark:text-gray-300 mb-2">Description</label>
               <textarea 
                 name="description" 
-                value={newContract.description} 
+                value={newCollection.description} 
                 onChange={handleInputChange}
-                placeholder="Optional description of the collection"
+                className="w-full p-2 border rounded"
+                placeholder="Collection description"
                 rows={3}
-                className="block w-full mt-1 rounded-md border-gray-300 dark:border-gray-600 
-                         shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 
-                         focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
-            </label>
-          </div>
-          
-          <div className="flex justify-end">
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-gray-700 dark:text-gray-300 mb-2">Image URL</label>
+              <input 
+                type="text" 
+                name="image" 
+                value={newCollection.image} 
+                onChange={handleInputChange}
+                className="w-full p-2 border rounded"
+                placeholder="https://..."
+              />
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-gray-700 dark:text-gray-300 mb-2">Website URL</label>
+              <input 
+                type="text" 
+                name="url" 
+                value={newCollection.url} 
+                onChange={handleInputChange}
+                className="w-full p-2 border rounded"
+                placeholder="https://..."
+              />
+            </div>
+            
             <button 
-              type="submit" 
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md 
-                       shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 
-                       transition-colors duration-150"
+              type="submit"
+              className="px-4 py-2 bg-blue-600 text-white rounded"
+              disabled={loading}
             >
-              Add Contract
+              {loading ? 'Adding...' : 'Add Collection'}
             </button>
-          </div>
-        </form>
-      </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 };

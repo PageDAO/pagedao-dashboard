@@ -1,71 +1,185 @@
-// src/pages/CollectionDetail.jsx - Updated for new API
+// src/pages/CollectionDetail.jsx - Updated for registry integration
 import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { fetchCollectionDetail } from '../services/api';
-import { collectionContext } from '../contexts/collectionContext';
+import { fetchRegistry } from '../services/registryService';
 
 function CollectionDetail() {
   const { address } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const chain = searchParams.get('chain') || 'all';
   const page = parseInt(searchParams.get('page') || '1', 10);
-  const pageSize = 8; // Smaller page size to reduce API timeouts
+  const pageSize = 8;
   
   const [collection, setCollection] = useState(null);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-
-useEffect(() => {
-  let isMounted = true;
-  
-  const fetchData = async () => {
-    if (!isMounted) return;
+  useEffect(() => {
+    let isMounted = true;
     
-    try {
-      setLoading(true);
-      // Pass page and pageSize to API call
-      const response = await fetchCollectionDetail(address, chain, page, pageSize);
+    const fetchData = async () => {
+      if (!isMounted) return;
       
-      if (isMounted) {
-        console.log('Collection detail response:', response);
+      try {
+        setLoading(true);
         
-        // Check for historical collection context
-        const contextKey = `${chain}-${address.toLowerCase()}`;
-        const historicalContext = collectionContext[contextKey];
+        // First try to get collection from registry
+        let registryCollection = null;
+        const registry = await fetchRegistry();
         
-        // Merge API data with historical context if available
-        if (historicalContext) {
-          setCollection({
-            ...response.data.collection,
-            ...historicalContext,
-            // Keep contract address and chain from API
-            contractAddress: response.data.collection.contractAddress,
-            chain: response.data.collection.chain
-          });
+        // Find the collection in the registry
+        if (chain && chain !== 'all' && registry[chain]) {
+          registryCollection = registry[chain].find(c => 
+            c.address.toLowerCase() === address.toLowerCase()
+          );
         } else {
-          setCollection(response.data.collection);
+          // Search all chains if chain not specified
+          for (const [chainName, collections] of Object.entries(registry)) {
+            const found = collections.find(c => 
+              c.address.toLowerCase() === address.toLowerCase()
+            );
+            if (found) {
+              registryCollection = found;
+              // Update the chain if found in a different chain
+              if (chain === 'all') {
+                setSearchParams({ chain: chainName, page: page.toString() });
+              }
+              break;
+            }
+          }
         }
         
-        setItems(response.data.items || []);
-        setLoading(false);
+        if (registryCollection) {
+          console.log('Collection found in registry:', registryCollection);
+          
+          // Format registry data to match expected structure
+          const formattedCollection = {
+            contractAddress: registryCollection.address,
+            chain: registryCollection.chain || chain,
+            name: registryCollection.name,
+            title: registryCollection.name,
+            description: registryCollection.description || "",
+            type: registryCollection.type || 'book',
+            imageURI: registryCollection.image || "",
+            contentURI: registryCollection.url || "",
+            creator: registryCollection.creator || "",
+            additionalData: {
+              author: registryCollection.creator,
+              publisher: registryCollection.publisher
+            }
+          };
+          
+          setCollection(formattedCollection);
+          
+          // Calculate token IDs for this page
+          const startTokenId = (page - 1) * pageSize + 1;
+          const endTokenId = startTokenId + pageSize - 1;
+          
+          // Generate array of token IDs to fetch
+          const tokenIds = [];
+          for (let id = startTokenId; id <= endTokenId; id++) {
+            tokenIds.push(id.toString());
+          }
+          
+          // Fetch actual token metadata for specific collections
+          if (
+            (formattedCollection.chain === 'polygon' && 
+             formattedCollection.contractAddress.toLowerCase() === '0x931204fb8cea7f7068995dce924f0d76d571df99') ||
+            formattedCollection.type === 'book' || 
+            formattedCollection.type === 'alexandria_book'
+          ) {
+            try {
+              // Use the batch endpoint to fetch token metadata
+              const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://pagedao-hub-serverless-api.netlify.app';
+              const batchUrl = `${API_BASE_URL}/.netlify/functions/nft/batch/${formattedCollection.contractAddress}/${formattedCollection.chain}?assetType=${formattedCollection.type || 'book'}&tokenIds=${tokenIds.join(',')}&includeMetadata=true`;
+              
+              console.log(`Fetching batch metadata: ${batchUrl}`);
+              const response = await fetch(batchUrl);
+              
+              if (!response.ok) {
+                throw new Error(`API responded with status: ${response.status}`);
+              }
+              
+              const batchData = await response.json();
+              console.log('Batch metadata response:', batchData);
+              
+              // Extract items from the response
+              let fetchedItems = [];
+              if (batchData.data?.items) {
+                fetchedItems = batchData.data.items;
+              } else if (Array.isArray(batchData.data)) {
+                fetchedItems = batchData.data;
+              } else if (batchData.items) {
+                fetchedItems = batchData.items;
+              }
+              
+              // Process and normalize the items
+              const processedItems = fetchedItems.map(item => ({
+                tokenId: item.tokenId,
+                title: item.title || item.name || `${formattedCollection.name} #${item.tokenId}`,
+                description: item.description || formattedCollection.description,
+                imageURI: item.imageURI || item.image || formattedCollection.imageURI,
+                contentURI: item.contentURI || item.animation_url || item.external_url || item.url,
+                author: item.author || item.creator || formattedCollection.creator,
+                metadata: item.metadata || {}
+              }));
+              
+              setItems(processedItems);
+            } catch (error) {
+              console.error('Error fetching token batch:', error);
+              
+              // Fallback to placeholder items if metadata fetch fails
+              const placeholderItems = tokenIds.map(tokenId => ({
+                tokenId,
+                title: `${formattedCollection.name} #${tokenId}`,
+                description: formattedCollection.description,
+                imageURI: formattedCollection.imageURI
+              }));
+              
+              setItems(placeholderItems);
+            }
+          } else {
+            // For other collections, use placeholder items
+            const placeholderItems = tokenIds.map(tokenId => ({
+              tokenId,
+              title: `${formattedCollection.name} #${tokenId}`,
+              description: formattedCollection.description,
+              imageURI: formattedCollection.imageURI
+            }));
+            
+            setItems(placeholderItems);
+          }
+        } else {
+          // Fallback to API if not in registry
+          console.log('Collection not found in registry, falling back to API');
+          const response = await fetchCollectionDetail(address, chain, page, pageSize);
+          
+          if (isMounted) {
+            setCollection(response.data.collection);
+            setItems(response.data.items || []);
+          }
+        }
+        
+        if (isMounted) {
+          setLoading(false);
+        }
+      } catch (err) {
+        if (isMounted) {
+          console.error('Error fetching collection detail:', err);
+          setError(err.message || 'Failed to fetch collection');
+          setLoading(false);
+        }
       }
-    } catch (err) {
-      if (isMounted) {
-        console.error('Error fetching collection detail:', err);
-        setError(err.message || 'Failed to fetch collection');
-        setLoading(false);
-      }
-    }
-  };
-  
-  fetchData();
-  
-  return () => {
-    isMounted = false;
-  };
-}, [address, chain, page]); 
+    };
+    
+    fetchData();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [address, chain, page]); 
   
   const getChainColor = (chainName) => {
     const colors = {
@@ -139,117 +253,90 @@ useEffect(() => {
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">
           {collection.name || collection.title || "Publication Details"}
-          {collection.chain === 'base' && (
-            <span className="ml-2 px-2 py-1 text-xs font-semibold rounded text-white" 
-              style={{ backgroundColor: getChainColor(collection.chain) }}>
-              Alexandria Book
-            </span>
-          )}
+          <span className="ml-2 px-2 py-1 text-xs font-semibold rounded text-white" 
+            style={{ backgroundColor: getChainColor(collection.chain) }}>
+            {getCollectionType()}
+          </span>
         </h2>
         
-        {/* Add book cover display for Alexandria books */}
-        {collection.chain === 'base' && (
-          <div className="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-lg mb-6">
-            <div className="flex flex-col md:flex-row">
-              {/* Book cover */}
-              <div className="md:w-1/3 mb-6 md:mb-0 md:pr-6">
-                <img 
-                  src={collection.imageURI || '/images/placeholder-cover.png'} 
-                  alt={collection.title || 'Book cover'} 
-                  className="w-full h-auto rounded-lg shadow-md"
-                  onError={(e) => { e.target.src = '/images/placeholder-cover.png' }}
-                />
-              </div>
+        {/* Collection details */}
+        <div className="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-lg mb-6">
+          <div className="flex flex-col md:flex-row">
+            {/* Cover image */}
+            <div className="md:w-1/3 mb-6 md:mb-0 md:pr-6">
+              <img 
+                src={collection.imageURI || '/images/placeholder-cover.png'} 
+                alt={collection.title || 'Collection'} 
+                className="w-full h-auto rounded-lg shadow-md"
+                onError={(e) => { e.target.src = '/images/placeholder-cover.png' }}
+              />
+            </div>
+            
+            {/* Collection details */}
+            <div className="md:w-2/3">
+              <h2 className="text-2xl font-bold text-blue-800 dark:text-blue-300 mb-2">
+                {collection.title || collection.name}
+              </h2>
               
-              {/* Book details */}
-              <div className="md:w-2/3">
-                <h2 className="text-2xl font-bold text-blue-800 dark:text-blue-300 mb-2">
-                  {collection.title || collection.name}
-                </h2>
-                
-                {collection.additionalData?.author && (
-                  <p className="text-lg font-medium text-blue-700 dark:text-blue-200 mb-4">
-                    by {collection.additionalData.author}
+              {collection.creator && (
+                <p className="text-lg font-medium text-blue-700 dark:text-blue-200 mb-4">
+                  by {collection.creator}
+                </p>
+              )}
+              
+              <div className="mb-4 text-blue-700 dark:text-blue-200">
+                {collection.description && (
+                  <p className="mb-4">{collection.description?.substring(0, 500)}
+                    {collection.description?.length > 500 ? '...' : ''}
                   </p>
                 )}
                 
-                <div className="mb-4 text-blue-700 dark:text-blue-200">
-                  {collection.description && (
-                    <p className="mb-4">{collection.description?.substring(0, 500)}
-                      {collection.description?.length > 500 ? '...' : ''}
-                    </p>
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  {collection.additionalData?.publisher && (
+                    <div>
+                      <span className="font-semibold">Publisher:</span> {collection.additionalData.publisher}
+                    </div>
                   )}
                   
-                  <div className="grid grid-cols-2 gap-4 mt-4">
-                    {collection.additionalData?.publisher && (
-                      <div>
-                        <span className="font-semibold">Publisher:</span> {collection.additionalData.publisher}
-                      </div>
-                    )}
-                    
-                    {collection.additionalData?.pageCount && (
-                      <div>
-                        <span className="font-semibold">Pages:</span> {collection.additionalData.pageCount}
-                      </div>
-                    )}
-                    
-                    {collection.additionalData?.language && (
-                      <div>
-                        <span className="font-semibold">Language:</span> {collection.additionalData.language}
-                      </div>
-                    )}
-                    
-                    {collection.totalSupply && (
-                      <div>
-                        <span className="font-semibold">Total Editions:</span> {collection.totalSupply}
-                      </div>
-                    )}
-                    
-                    {collection.additionalData?.exoplanet && (
-                      <div>
-                        <span className="font-semibold">Exoplanet:</span> {collection.additionalData.exoplanet}
-                      </div>
-                    )}
-                  </div>
+                  {collection.type && (
+                    <div>
+                      <span className="font-semibold">Type:</span> {collection.type}
+                    </div>
+                  )}
+                  
+                  {collection.chain && (
+                    <div>
+                      <span className="font-semibold">Chain:</span> {collection.chain}
+                    </div>
+                  )}
+                  
+                  {collection.totalSupply && (
+                    <div>
+                      <span className="font-semibold">Total Editions:</span> {collection.totalSupply}
+                    </div>
+                  )}
                 </div>
-                
-                {collection.contentURI && (
-                  <a 
-                    href={collection.contentURI}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                  >
-                    Read Book
-                    <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
-                    </svg>
-                  </a>
-                )}
               </div>
+              
+              {collection.contentURI && (
+                <a 
+                  href={collection.contentURI}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Read Content
+                  <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+                  </svg>
+                </a>
+              )}
             </div>
           </div>
-        )}
+        </div>
       </div>
       
-      <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">Collection Items</h2>
-      
-      {collection.chain === 'base' && (
-        <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg mb-6">
-          <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-2">
-            About This Alexandria Book
-          </h3>
-          <p className="text-blue-700 dark:text-blue-200">
-            This is a digital book published on Base through Alexandria Labs. 
-            Each token represents a unique edition of the same book content.
-            {collection.additionalData?.editionInfo && (
-              <span className="block mt-1">
-                This book has {collection.additionalData.editionInfo}.
-              </span>
-            )}
-          </p>
-        </div>
-      )}
+      <h2 className="text-2xl font-bold text-gray-800 dark:text-white mt-8 mb-6">Collection Items</h2>
       
       {items.length === 0 ? (
         <div className="text-center text-gray-500 py-8 bg-white dark:bg-gray-800 rounded-lg shadow-md">
@@ -260,46 +347,65 @@ useEffect(() => {
           {items.map((item) => (
             <div 
               key={item.id || item.tokenId} 
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden"
+              className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
             >
-              <img 
-                src={item.imageURI || collection.imageURI || '/images/placeholder-item.png'} 
-                alt={item.title || `Item #${item.tokenId}`} 
-                className="w-full h-48 object-cover"
-                onError={(e) => {
-                  e.target.src = '/images/placeholder-item.png';
-                }}
-              />
+              <Link to={`/collections/${address}/${item.tokenId}?chain=${chain}`}>
+                <div className="relative pb-[100%]">
+                  <img 
+                    src={item.imageURI || collection.imageURI || '/images/placeholder-item.png'} 
+                    alt={item.title || `Item #${item.tokenId}`} 
+                    className="absolute w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.src = '/images/placeholder-item.png';
+                    }}
+                  />
+                </div>
+              </Link>
               
               <div className="p-4">
                 <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-1 truncate">
-                  {collection.chain === 'base' 
-                    ? `Edition #${item.tokenId}` 
-                    : (item.title || `Item #${item.tokenId}`)}
+                  {item.title || `Item #${item.tokenId}`}
                 </h3>
                 
-                {collection.chain !== 'base' && (
-                  <p className="text-sm text-gray-600 dark:text-gray-300 h-10 overflow-hidden">
-                    {item.description?.substring(0, 60)}
-                    {item.description?.length > 60 ? '...' : ''}
+                {item.author && (
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
+                    by {item.author}
                   </p>
                 )}
                 
-                <div className="flex justify-between items-center mt-2">
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-sm text-gray-600 dark:text-gray-300 h-10 overflow-hidden">
+                  {item.description?.substring(0, 60)}
+                  {item.description?.length > 60 ? '...' : ''}
+                </p>
+                
+                <div className="flex justify-between items-center mt-3">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
                     Token ID: {item.tokenId}
-                  </div>
-                  {item.contentURI && (
+                  </span>
+                  
+                  <Link 
+                    to={`/collections/${address}/${item.tokenId}?chain=${chain}`}
+                    className="text-blue-500 text-sm hover:text-blue-700"
+                  >
+                    View Details
+                  </Link>
+                </div>
+                
+                {item.contentURI && (
+                  <div className="mt-2">
                     <a 
                       href={item.contentURI} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="text-blue-500 text-xs hover:text-blue-700"
+                      className="inline-flex items-center text-sm text-purple-500 hover:text-purple-700"
                     >
-                      View Content
+                      Read Content
+                      <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                      </svg>
                     </a>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -334,7 +440,7 @@ useEffect(() => {
       </div>
       
       <div className="mt-8 text-center text-gray-500 text-sm">
-        <p>Using PageDAO API to fetch on-chain NFT data</p>
+        <p>Powered by PageDAO Registry</p>
       </div>
     </div>
   );

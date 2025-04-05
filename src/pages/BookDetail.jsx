@@ -1,6 +1,8 @@
+// src/pages/BookDetail.jsx - Updated for registry integration
 import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { fetchBookDetail } from '../services/api';
+import { fetchRegistry } from '../services/registryService';
 
 function BookDetail() {
   const { address, tokenId } = useParams();
@@ -19,22 +21,69 @@ function BookDetail() {
       
       try {
         setLoading(true);
-        const response = await fetchBookDetail(address, chain, tokenId);
+        
+        // Directly fetch the token metadata using the API
+        const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://pagedao-hub-serverless-api.netlify.app';
+        const tokenUrl = `${API_BASE_URL}/.netlify/functions/nft/${address}/${chain}/${tokenId}?includeMetadata=true&includeOwnership=true`;
+        
+        console.log(`Fetching token metadata: ${tokenUrl}`);
+        const response = await fetch(tokenUrl);
+        
+        if (!response.ok) {
+          throw new Error(`API responded with status: ${response.status}`);
+        }
+        
+        let tokenData = await response.json();
+        console.log('Token metadata response:', tokenData);
+        
+        // Handle different response formats
+        if (tokenData.data) {
+          tokenData = tokenData.data;
+        }
+        
+        // Get collection info from registry
+        const registry = await fetchRegistry();
+        let registryCollection = null;
+        
+        // Find the collection in registry
+        if (chain && chain !== 'all' && registry[chain]) {
+          registryCollection = registry[chain].find(c => 
+            c.address.toLowerCase() === address.toLowerCase()
+          );
+        } else {
+          // Search all chains if chain not specified
+          for (const [chainName, collections] of Object.entries(registry)) {
+            const found = collections.find(c => 
+              c.address.toLowerCase() === address.toLowerCase()
+            );
+            if (found) {
+              registryCollection = found;
+              break;
+            }
+          }
+        }
+        
+        // Combine token data with collection data
+        const formattedBook = {
+          contractAddress: address,
+          chain: chain,
+          tokenId: tokenId,
+          title: tokenData.title || tokenData.name || `Token #${tokenId}`,
+          description: tokenData.description || (registryCollection?.description || ""),
+          imageURI: tokenData.imageURI || tokenData.image || (registryCollection?.image || ""),
+          contentURI: tokenData.contentURI || tokenData.animation_url || tokenData.external_url || tokenData.url || (registryCollection?.url || ""),
+          creator: tokenData.creator || (registryCollection?.creator || ""),
+          owner: tokenData.owner,
+          additionalData: {
+            author: tokenData.author || tokenData.creator || (registryCollection?.creator || ""),
+            publisher: tokenData.publisher || (registryCollection?.publisher || ""),
+            ...tokenData.metadata,
+            ...tokenData.additionalData
+          }
+        };
         
         if (isMounted) {
-          console.log('Book detail response:', response);
-          
-          // Handle both old and new response formats
-          if (response.success && response.data) {
-            // New format with nested data
-            console.log('Setting book state from nested data structure');
-            setBook(response.data);
-          } else {
-            // Old format or already extracted data
-            console.log('Setting book state directly from response');
-            setBook(response);
-          }
-          
+          setBook(formattedBook);
           setLoading(false);
         }
       } catch (err) {
@@ -42,6 +91,53 @@ function BookDetail() {
           console.error('Error fetching book detail:', err);
           setError(err.message || 'Failed to fetch book');
           setLoading(false);
+          
+          // Try fallback to registry-only data
+          try {
+            const registry = await fetchRegistry();
+            let registryCollection = null;
+            
+            // Find the collection in registry
+            if (chain && registry[chain]) {
+              registryCollection = registry[chain].find(c => 
+                c.address.toLowerCase() === address.toLowerCase()
+              );
+            } else {
+              // Search all chains
+              for (const [chainName, collections] of Object.entries(registry)) {
+                const found = collections.find(c => 
+                  c.address.toLowerCase() === address.toLowerCase()
+                );
+                if (found) {
+                  registryCollection = found;
+                  break;
+                }
+              }
+            }
+            
+            if (registryCollection) {
+              // Create fallback book data from registry
+              const fallbackBook = {
+                contractAddress: address,
+                chain: chain,
+                tokenId: tokenId,
+                title: `${registryCollection.name} #${tokenId}`,
+                description: registryCollection.description || "",
+                imageURI: registryCollection.image || "",
+                contentURI: registryCollection.url || "",
+                creator: registryCollection.creator || "",
+                additionalData: {
+                  author: registryCollection.creator,
+                  publisher: registryCollection.publisher
+                }
+              };
+              
+              setBook(fallbackBook);
+              setError("Could not fetch specific token metadata. Showing collection data instead.");
+            }
+          } catch (fallbackErr) {
+            console.error('Fallback error:', fallbackErr);
+          }
         }
       }
     };
@@ -62,6 +158,47 @@ function BookDetail() {
       polygon: '#8247E5'
     };
     return colors[chainName] || '#4dabf7';
+  };
+  
+  // Helper to find content URL from various possible field names
+  const getContentUrl = () => {
+    if (!book) return null;
+    
+    const possibleFields = [
+      'contentURI', 'content_uri', 'fileURI', 'file_uri', 
+      'interactive_url', 'animation_url', 'external_url',
+      'externalUrl', 'content_url', 'contentUrl', 'url'
+    ];
+    
+    for (const field of possibleFields) {
+      if (book[field]) return book[field];
+    }
+    
+    // Check metadata fields if available
+    if (book.metadata && typeof book.metadata === 'object') {
+      for (const field of possibleFields) {
+        if (book.metadata[field]) return book.metadata[field];
+      }
+    }
+    
+    return null;
+  };
+  
+  // Get the book type based on chain and other fields
+  const getBookType = () => {
+    if (!book) return '';
+    
+    if (book.chain === 'base' || book.type?.includes('alexandria')) {
+      return 'Alexandria Book';
+    } else if (book.chain === 'optimism' || book.type?.includes('mirror')) {
+      return 'Mirror Publication';
+    } else if (book.chain === 'polygon' || book.type?.includes('readme')) {
+      return 'Readme Book';
+    } else if (book.chain === 'zora' || book.type?.includes('zora')) {
+      return 'Zora Publication';
+    }
+    
+    return 'Digital Book';
   };
   
   if (loading) {
@@ -89,19 +226,8 @@ function BookDetail() {
     );
   }
   
-  // Add this right after the error checking
-  if (process.env.NODE_ENV === 'development') {
-    console.log('Book object in render:', book);
-    console.log('Has contentURI:', !!book?.contentURI);
-    console.log('Has metadata:', !!book?.metadata);
-    if (book?.metadata) {
-      console.log('Metadata URLs:', {
-        interactive_url: book.metadata.interactive_url,
-        animation_url: book.metadata.animation_url,
-        external_url: book.metadata.external_url
-      });
-    }
-  }
+  // Get content URL from various possible field names
+  const contentUrl = getContentUrl();
   
   return (
     <div className="container mx-auto px-4 py-6">
@@ -135,15 +261,9 @@ function BookDetail() {
               
               {/* Action Buttons */}
               <div className="mt-6 space-y-3">
-                {(book?.contentURI || book?.content_uri || book?.fileURI || 
-                  book?.file_uri || book?.interactive_url || book?.animation_url || 
-                  book?.external_url || book?.externalUrl || book?.content_url || 
-                  book?.contentUrl) && (
+                {contentUrl && (
                   <a 
-                    href={book?.contentURI || book?.content_uri || book?.fileURI || 
-                          book?.file_uri || book?.interactive_url || book?.animation_url || 
-                          book?.external_url || book?.externalUrl || book?.content_url || 
-                          book?.contentUrl}
+                    href={contentUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-full inline-flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
@@ -151,7 +271,7 @@ function BookDetail() {
                     <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
                     </svg>
-                    Readme
+                    Read Content
                   </a>
                 )}
                 
@@ -177,7 +297,7 @@ function BookDetail() {
                       className="px-2 py-1 text-xs font-semibold rounded text-white mr-2"
                       style={{ backgroundColor: getChainColor(chain) }}
                     >
-                      {chain.charAt(0).toUpperCase() + chain.slice(1)}
+                      {getBookType()}
                     </span>
                     <span className="text-gray-600 dark:text-gray-400 text-sm">
                       Token ID: {tokenId}
@@ -194,10 +314,10 @@ function BookDetail() {
               </div>
               
               {/* Author/Creator */}
-              {book.additionalData?.author && (
+              {(book.additionalData?.author || book.creator) && (
                 <div className="mb-4">
                   <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-300">
-                    By {book.additionalData.author}
+                    By {book.additionalData?.author || book.creator}
                   </h2>
                 </div>
               )}
@@ -231,6 +351,18 @@ function BookDetail() {
                     <p className="text-gray-800 dark:text-white truncate">{book.creator}</p>
                   </div>
                 )}
+                
+                {/* Chain */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Chain</h3>
+                  <p className="text-gray-800 dark:text-white">{chain}</p>
+                </div>
+                
+                {/* Token Standard */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Type</h3>
+                  <p className="text-gray-800 dark:text-white">{book.type || getBookType()}</p>
+                </div>
                 
                 {/* Publication Date */}
                 {book.createdAt && (
@@ -268,7 +400,7 @@ function BookDetail() {
                 
                 {/* Dynamic rendering of any other additional data */}
                 {book.additionalData && Object.entries(book.additionalData)
-                  .filter(([key]) => !['author', 'publisher', 'pageCount', 'language'].includes(key))
+                  .filter(([key]) => !['author', 'publisher', 'pageCount', 'language', 'chain', 'type', 'address'].includes(key))
                   .map(([key, value]) => (
                     typeof value !== 'object' && value ? (
                       <div key={key}>
@@ -280,24 +412,25 @@ function BookDetail() {
                     ) : null
                   ))
                 }
-                {/* Add this to the Book Details Grid section */}
-                {book.contentURI && (
+                
+                {/* Content URL */}
+                {contentUrl && (
                   <div className="col-span-2">
                     <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Content URL</h3>
                     <a 
-                      href={book.contentURI}
+                      href={contentUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-500 hover:text-blue-700 text-sm break-all"
                     >
-                      {book.contentURI}
+                      {contentUrl}
                     </a>
                   </div>
                 )}
               </div>
               
-                            {/* NFT Details */}
-                            <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+              {/* NFT Details */}
+              <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
                 <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
                   NFT Details
                 </h3>
@@ -353,8 +486,9 @@ function BookDetail() {
         </div>
       </div>
       
-      {/* Optional: Related Books Section */}
-      {/* This could be implemented later to show other books from the same collection */}
+      <div className="mt-8 text-center text-gray-500 text-sm">
+        <p>Powered by PageDAO Registry</p>
+      </div>
     </div>
   );
 }

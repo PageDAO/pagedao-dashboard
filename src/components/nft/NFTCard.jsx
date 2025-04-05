@@ -1,7 +1,6 @@
 // src/components/nft/NFTCard.jsx
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { isAlexandriaBook } from '../../utils/alexandriaUtils';
 
 function NFTCard({ collection }) {
   // Chain-specific styling
@@ -20,8 +19,8 @@ function NFTCard({ collection }) {
   const getCollectionType = () => {
     if (!collection) return 'NFT Collection';
     
-    // Is this an Alexandria book?
-    if (isAlexandriaBook(collection)) {
+    // Check if this is on Base chain (likely Alexandria)
+    if (collection.chain === 'base' || collection.type === 'alexandria_book' || collection.type === 'alexandria-book') {
       return 'Alexandria Book';
     }
     
@@ -33,10 +32,11 @@ function NFTCard({ collection }) {
   
   // Generate additional status badges or info
   const getCollectionBadge = () => {
-    if (isAlexandriaBook(collection) && collection.additionalData?.author) {
+    // Check if creator info exists
+    if (collection.creator) {
       return (
         <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-          by {collection.additionalData.author}
+          by {collection.creator}
         </p>
       );
     }
@@ -51,13 +51,16 @@ function NFTCard({ collection }) {
   // Make sure we have a valid contract address and chain
   const hasValidLink = collection.contractAddress && collection.chain;
   
+  // Content URL (handle different field names)
+  const contentUrl = collection.contentURI || collection.url;
+  
   // Create the card content (will be used inside or outside of Link)
   const cardContent = (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
       <div className="relative pb-[100%]">
         <img 
-          src={collection.imageURI || '/images/placeholder-cover.png'} 
-          alt={collection.title || 'Collection'} 
+          src={collection.imageURI || collection.image || '/images/placeholder-cover.png'} 
+          alt={collection.title || collection.name || 'Collection'} 
           className="absolute w-full h-full object-cover"
           onError={(e) => { e.target.src = '/images/placeholder-cover.png' }}
         />
@@ -69,8 +72,9 @@ function NFTCard({ collection }) {
         
         {getCollectionBadge()}
         
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          {collection.format && `Format: ${collection.format}`}
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 h-10 overflow-hidden">
+          {collection.description?.substring(0, 60)}
+          {collection.description?.length > 60 ? '...' : ''}
         </p>
         
         {/* Add collection type indicator */}
@@ -87,7 +91,7 @@ function NFTCard({ collection }) {
         {/* Links */}
         <div className="mt-3 flex flex-wrap">
           <Link 
-            to={`/collections/${collection.contractAddress}?chain=${collection.chain}`}
+            to={`/collections/${collection.contractAddress || collection.address}?chain=${collection.chain}`}
             className="inline-flex items-center text-sm text-blue-500 hover:text-blue-700 mr-4"
           >
             View details
@@ -96,15 +100,15 @@ function NFTCard({ collection }) {
             </svg>
           </Link>
           
-          {/* Special Alexandria link */}
-          {isAlexandriaBook(collection) && collection.contentURI && (
+          {/* Link to content if available */}
+          {contentUrl && (
             <a 
-              href={collection.contentURI}
+              href={contentUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center text-sm text-purple-500 hover:text-purple-700 mt-1 sm:mt-0"
             >
-              Read on Alexandria
+              Read content
               <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
               </svg>
@@ -117,7 +121,7 @@ function NFTCard({ collection }) {
   
   // Wrap in Link if we have valid data, otherwise just return the card
   return hasValidLink ? (
-    <Link to={`/collections/${collection.contractAddress}?chain=${collection.chain}`}>
+    <Link to={`/collections/${collection.contractAddress || collection.address}?chain=${collection.chain}`}>
       {cardContent}
     </Link>
   ) : (
