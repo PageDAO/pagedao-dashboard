@@ -1,11 +1,12 @@
 // src/services/registryService.js
 import axios from 'axios';
 
-const REGISTRY_BASE_URL = import.meta.env.VITE_REGISTRY_API_URL || 'https://reggie-db.netlify.app/.netlify/functions';
+// Use your own domain for the registry API
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://pagedao-hub-serverless-api.netlify.app';
 
 // Create axios instance for registry API
 const registryApi = axios.create({
-  baseURL: REGISTRY_BASE_URL,
+  baseURL: API_BASE_URL,
   timeout: 10000
 });
 
@@ -14,11 +15,20 @@ const registryApi = axios.create({
  */
 export const fetchRegistry = async () => {
   try {
-    const response = await registryApi.get('/registry');
+    // Use registry-proxy instead of directly calling the external API
+    const response = await registryApi.get('/.netlify/functions/registry-proxy');
     return response.data;
   } catch (error) {
     console.error('Error fetching registry:', error);
-    throw error;
+    
+    // Return a minimal registry as fallback
+    return {
+      ethereum: [],
+      base: [],
+      polygon: [],
+      optimism: [],
+      zora: []
+    };
   }
 };
 

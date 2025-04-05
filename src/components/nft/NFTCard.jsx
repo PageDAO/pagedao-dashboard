@@ -57,11 +57,11 @@ function NFTCard({ collection }) {
   // Create the card content (will be used inside or outside of Link)
   const cardContent = (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
-      <div className="relative pb-[100%]">
+      <div className="relative pb-[75%] bg-gray-100 dark:bg-gray-700">
         <img 
           src={collection.imageURI || collection.image || '/images/placeholder-cover.png'} 
           alt={collection.title || collection.name || 'Collection'} 
-          className="absolute w-full h-full object-cover"
+          className="absolute w-full h-full object-contain p-2"
           onError={(e) => { e.target.src = '/images/placeholder-cover.png' }}
         />
       </div>
