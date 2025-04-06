@@ -1,7 +1,18 @@
-// src/services/api.js
+import axios from 'axios';
 import * as hubApi from './hubApiClient';
 import * as registryApi from './registryApiClient';
 import { featuredCollections } from '../config/featuredCollections';
+
+const API_BASE_URL = 'https://pagedao-hub-serverless-api.netlify.app';
+
+// Create axios instance with default config
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
 
 /**
  * Fetch collections with metadata
@@ -298,28 +309,10 @@ export const fetchHistoricalData = async (chain = 'all', period = '24h') => {
  */
 export const fetchNetworkComparison = async () => {
   try {
-    // Create a derived network comparison from the token prices data
-    const pricesResponse = await fetchTokenPrices();
-    
-    const networks = Object.keys(pricesResponse.data || {})
-      .filter(key => key !== 'updated')
-      .map(chain => {
-        const data = pricesResponse.data[chain] || {};
-        return {
-          chain,
-          price: data.price || 0,
-          volume24h: data.volume24h || 0,
-          liquidity: data.liquidity || 0,
-          change24h: data.change24h || 0
-        };
-      });
-    
-    return {
-      data: networks,
-      success: true
-    };
+    const response = await api.get('/.netlify/functions/network-comparison');
+    return response.data;
   } catch (error) {
-    console.error('Error creating network comparison:', error);
+    console.error('Error fetching network comparison:', error);
     throw error;
   }
 };
