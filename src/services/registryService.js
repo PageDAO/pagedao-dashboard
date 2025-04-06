@@ -6,7 +6,7 @@ const REGISTRY_API_URL = import.meta.env.VITE_REGISTRY_API_URL || 'https://reggi
 
 // Create axios instance for registry API
 const registryApi = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: REGISTRY_API_URL,
   timeout: 10000
 });
 
