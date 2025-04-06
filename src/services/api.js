@@ -141,10 +141,245 @@ export const fetchCollectionDetail = async (address, chain, page = 1, pageSize =
   }
 };
 
-// Export all functions from both APIs
+/**
+ * Fetch book detail
+ * @param {string} address - Contract address
+ * @param {string} chain - Blockchain name
+ * @param {string} tokenId - Token ID
+ * @returns {Promise<Object>} Book details
+ */
+export const fetchBookDetail = async (address, chain, tokenId) => {
+  try {
+    const bookData = await hubApi.fetchTokenMetadata(address, chain, tokenId);
+    return bookData;
+  } catch (error) {
+    console.error('Error fetching book detail:', error);
+    return {
+      contractAddress: address,
+      chain: chain,
+      tokenId: tokenId,
+      title: "Unknown Book",
+      description: "Book data unavailable"
+    };
+  }
+};
+
+/**
+ * Fetch books from the registry
+ * @param {number} limit - Maximum number of books to return
+ * @returns {Promise<Object>} Books data
+ */
+export const fetchBooks = async (limit = 12) => {
+  try {
+    // Get collections from registry
+    const collections = await registryApi.getCollections('all');
+    
+    // Filter to only include book collections
+    const bookCollections = collections
+      .filter(c => 
+        c.type === 'book' || 
+        c.type === 'alexandria_book' || 
+        c.type === 'polygon_book' ||
+        c.contentType === 'book' ||
+        c.contentType === 'novel'
+      )
+      .slice(0, limit);
+    
+    return {
+      data: {
+        items: bookCollections.map(book => ({
+          contractAddress: book.address,
+          chain: book.chain,
+          name: book.name || "Unknown Book",
+          description: book.description || "",
+          type: book.type || 'book',
+          imageURI: book.image || "",
+          contentURI: book.url || "",
+          totalSupply: book.totalSupply || 100,
+          creator: book.creator || ""
+        }))
+      }
+    };
+  } catch (error) {
+    console.error('Error fetching books:', error);
+    return {
+      data: {
+        items: []
+      }
+    };
+  }
+};
+
+/**
+ * Fetch featured books
+ * @param {number} limit - Maximum number of featured books to return
+ * @returns {Promise<Object>} Featured books data
+ */
+export const fetchFeaturedBooks = async (limit = 4) => {
+  try {
+    // Get books and optionally filter for featured flag
+    const booksResponse = await fetchBooks(limit * 2);
+    
+    // Filter for featured collections if the property exists
+    const featuredBooks = booksResponse.data.items
+      .filter(book => book.featured === true)
+      .slice(0, limit);
+    
+    // If no featured books found, just return the first few
+    if (featuredBooks.length === 0) {
+      return {
+        data: {
+          items: booksResponse.data.items.slice(0, limit)
+        }
+      };
+    }
+    
+    return {
+      data: {
+        items: featuredBooks
+      }
+    };
+  } catch (error) {
+    console.error('Error fetching featured books:', error);
+    return {
+      data: {
+        items: []
+      }
+    };
+  }
+};
+
+/**
+ * Fetch token prices
+ * @returns {Promise<Object>} Token prices data
+ */
+export const fetchTokenPrices = async () => {
+  try {
+    return await hubApi.fetchTokenPrices();
+  } catch (error) {
+    console.error('Error fetching token prices:', error);
+    return {
+      success: false,
+      error: error.message,
+      data: {}
+    };
+  }
+};
+
+/**
+ * Fetch historical data
+ * @param {string} chain - Chain to filter by, or 'all' for all chains
+ * @param {string} period - Time period (e.g., '24h', '7d', '30d')
+ * @returns {Promise<Object>} Historical data
+ */
+export const fetchHistoricalData = async (chain = 'all', period = '24h') => {
+  try {
+    return await hubApi.fetchHistoricalData(chain, period);
+  } catch (error) {
+    console.error('Error fetching historical data:', error);
+    throw error;
+  }
+};
+
+/**
+ * Fetch network comparison data
+ * @returns {Promise<Object>} Network comparison data
+ */
+export const fetchNetworkComparison = async () => {
+  try {
+    // Create a derived network comparison from the token prices data
+    const pricesResponse = await fetchTokenPrices();
+    
+    const networks = Object.keys(pricesResponse.data || {})
+      .filter(key => key !== 'updated')
+      .map(chain => {
+        const data = pricesResponse.data[chain] || {};
+        return {
+          chain,
+          price: data.price || 0,
+          volume24h: data.volume24h || 0,
+          liquidity: data.liquidity || 0,
+          change24h: data.change24h || 0
+        };
+      });
+    
+    return {
+      data: networks,
+      success: true
+    };
+  } catch (error) {
+    console.error('Error creating network comparison:', error);
+    throw error;
+  }
+};
+
+/**
+ * Initialize tracking for contracts in the registry
+ * @returns {Promise<Object>} Tracking initialization result
+ */
+export const initializeTracking = async () => {
+  try {
+    // Get all contracts from registry
+    const registry = await registryApi.fetchRegistry();
+    
+    const allContracts = Object.entries(registry).flatMap(([chainName, contracts]) => 
+      contracts.map(contract => ({
+        ...contract,
+        chain: chainName,
+        contractAddress: contract.address
+      }))
+    );
+    
+    console.log(`Initializing tracking for ${allContracts.length} contracts from registry`);
+    
+    return {
+      success: true,
+      contracts: allContracts
+    };
+  } catch (error) {
+    console.error('Error initializing tracking for contracts:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+};
+
+// Re-export functions from the API clients
+export const {
+  fetchRegistry,
+  updateRegistry,
+  findCollectionByAddress,
+  getCollections
+} = registryApi;
+
+export const {
+  fetchCollectionInfo,
+  fetchTokenMetadata,
+  fetchTokenBatch
+} = hubApi;
+
+// Export default object with all functions
 export default {
-  ...hubApi.default,
-  ...registryApi.default,
+  // Registry API functions
+  fetchRegistry,
+  updateRegistry,
+  findCollectionByAddress,
+  getCollections,
+  
+  // Hub API functions
+  fetchCollectionInfo,
+  fetchTokenMetadata,
+  fetchTokenBatch,
+  
+  // Combined API functions
   fetchCollections,
-  fetchCollectionDetail
+  fetchCollectionDetail,
+  fetchBookDetail,
+  fetchBooks,
+  fetchFeaturedBooks,
+  fetchTokenPrices,
+  fetchHistoricalData,
+  fetchNetworkComparison,
+  initializeTracking
 };
