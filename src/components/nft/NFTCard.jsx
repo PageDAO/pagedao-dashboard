@@ -31,7 +31,29 @@ const NFTCard = ({ collection }) => {
   const fallbackImage = '/images/placeholder-cover.png';
   
   // Image source with fallback
-  const imageSource = imageError ? fallbackImage : (collection.imageURI || collection.image || fallbackImage);
+  const getCardImage = () => {
+    if (collection.chain === 'polygon' && 
+        collection.contractAddress?.toLowerCase() === '0x931204fb8cea7f7068995dce924f0d76d571df99') {
+      return '/images/ReadmeV1.png';
+    }
+    
+    return collection.imageURI || collection.image || '/images/placeholder-cover.png';
+  };
+  
+  // First, define a function to get the correct image source
+  const getImageSource = () => {
+    // Check if this is the Readme Books collection
+    if (collection.chain === 'polygon' && 
+        collection.contractAddress?.toLowerCase() === '0x931204fb8cea7f7068995dce924f0d76d571df99') {
+      return '/images/ReadmeV1.png';
+    }
+    
+    // Otherwise use the regular image
+    return collection.imageURI || collection.image || '/images/placeholder-cover.png';
+  };
+
+  // Then define the imageSource variable
+  const imageSource = getImageSource();
   
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 flex flex-col h-full">

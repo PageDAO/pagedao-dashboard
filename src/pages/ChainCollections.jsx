@@ -10,6 +10,18 @@ function ChainCollections() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
+  // Define the getCollectionImage function here
+  const getCollectionImage = (collection) => {
+    // Check if this is the Readme Books collection
+    if (collection?.chain === 'polygon' && 
+        collection?.contractAddress?.toLowerCase() === '0x931204fb8cea7f7068995dce924f0d76d571df99') {
+      return '/images/ReadmeV1.png';
+    }
+    
+    // Otherwise use the regular image
+    return collection?.imageURI || '/images/placeholder-cover.png';
+  };
+  
   // Chain metadata
   const chainInfo = {
     ethereum: { 
@@ -158,7 +170,7 @@ function ChainCollections() {
                 <div className="w-full lg:w-1/3 mb-6 lg:mb-0 lg:pr-6">
                   <div className="bg-gray-100 dark:bg-gray-900 rounded-lg p-2">
                     <img 
-                      src={featuredCollection.imageURI || '/images/placeholder-cover.png'} 
+                      src={getCollectionImage(featuredCollection)} 
                       alt={featuredCollection.title || featuredCollection.name} 
                       className="w-full h-auto rounded-lg object-contain"
                       style={{ maxHeight: '320px' }}

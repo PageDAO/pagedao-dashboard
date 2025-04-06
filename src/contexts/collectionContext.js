@@ -11,7 +11,7 @@ export const collectionContext = {
       "Community-curated literature",
       "Each token represents ownership of a unique book"
     ],
-    customImage: "/images/collections/readme-books-banner.jpg" // Optional custom banner
+    customImage: "/images/ReadmeV1.png" // Updated to use ReadmeV1.png
   },
   
   // Add other important collections as needed

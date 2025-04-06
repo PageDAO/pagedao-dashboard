@@ -16,6 +16,20 @@ function CollectionDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
+  // Define the getCollectionImage function to use ReadmeV1.png for Readme Books
+  const getCollectionImage = () => {
+    if (!collection) return '/images/placeholder-cover.png';
+    
+    // Check if this is the Readme Books collection
+    if (collection.chain === 'polygon' && 
+        collection.contractAddress?.toLowerCase() === '0x931204fb8cea7f7068995dce924f0d76d571df99') {
+      return '/images/ReadmeV1.png';
+    }
+    
+    // Otherwise use the regular image
+    return collection.imageURI || '/images/placeholder-cover.png';
+  };
+  
   useEffect(() => {
     let isMounted = true;
     
@@ -85,8 +99,8 @@ function CollectionDetail() {
           
           // Fetch actual token metadata for specific collections
           if (
-            (formattedCollection.chain === 'polygon' && 
-             formattedCollection.contractAddress.toLowerCase() === '0x931204fb8cea7f7068995dce924f0d76d571df99') ||
+            (formattedCollection.chain === 'polygon' &&
+              formattedCollection.contractAddress.toLowerCase() === '0x931204fb8cea7f7068995dce924f0d76d571df99') ||
             formattedCollection.type === 'book' || 
             formattedCollection.type === 'alexandria_book'
           ) {
@@ -179,7 +193,7 @@ function CollectionDetail() {
     return () => {
       isMounted = false;
     };
-  }, [address, chain, page]); 
+  }, [address, chain, page]);
   
   const getChainColor = (chainName) => {
     const colors = {
@@ -264,12 +278,14 @@ function CollectionDetail() {
           <div className="flex flex-col md:flex-row">
             {/* Cover image */}
             <div className="md:w-1/3 mb-6 md:mb-0 md:pr-6">
-              <img 
-                src={collection.imageURI || '/images/placeholder-cover.png'} 
-                alt={collection.title || 'Collection'} 
-                className="w-full h-auto rounded-lg shadow-md"
-                onError={(e) => { e.target.src = '/images/placeholder-cover.png' }}
-              />
+              <div className="bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden shadow-md p-4 flex items-center justify-center" style={{ height: '300px' }}>
+                <img 
+                  src={getCollectionImage()} 
+                  alt={collection.title || 'Collection'} 
+                  className="max-w-full max-h-full object-contain"
+                  onError={(e) => { e.target.src = '/images/placeholder-cover.png' }}
+                />
+              </div>
             </div>
             
             {/* Collection details */}
@@ -346,104 +362,107 @@ function CollectionDetail() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {items.map((item) => (
             <div 
-              key={item.id || item.tokenId} 
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
-            >
-              <Link to={`/collections/${address}/${item.tokenId}?chain=${chain}`}>
-                <div className="relative pb-[100%]">
+            key={item.id || item.tokenId} 
+            className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
+          >
+            <Link to={`/collections/${address}/${item.tokenId}?chain=${chain}`}>
+              <div className="relative h-48 bg-gray-100 dark:bg-gray-900 rounded-t-lg overflow-hidden">
+                <div className="absolute inset-0 flex items-center justify-center p-2">
                   <img 
                     src={item.imageURI || collection.imageURI || '/images/placeholder-item.png'} 
                     alt={item.title || `Item #${item.tokenId}`} 
-                    className="absolute w-full h-full object-cover"
+                    className="max-w-full max-h-full object-contain"
                     onError={(e) => {
                       e.target.src = '/images/placeholder-item.png';
                     }}
                   />
                 </div>
-              </Link>
-              
-              <div className="p-4">
-                <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-1 truncate">
-                  {item.title || `Item #${item.tokenId}`}
-                </h3>
-                
-                {item.author && (
-                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
-                    by {item.author}
-                  </p>
-                )}
-                
-                <p className="text-sm text-gray-600 dark:text-gray-300 h-10 overflow-hidden">
-                  {item.description?.substring(0, 60)}
-                  {item.description?.length > 60 ? '...' : ''}
-                </p>
-                
-                <div className="flex justify-between items-center mt-3">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    Token ID: {item.tokenId}
-                  </span>
-                  
-                  <Link 
-                    to={`/collections/${address}/${item.tokenId}?chain=${chain}`}
-                    className="text-blue-500 text-sm hover:text-blue-700"
-                  >
-                    View Details
-                  </Link>
-                </div>
-                
-                {item.contentURI && (
-                  <div className="mt-2">
-                    <a 
-                      href={item.contentURI} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center text-sm text-purple-500 hover:text-purple-700"
-                    >
-                      Read Content
-                      <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-                      </svg>
-                    </a>
-                  </div>
-                )}
               </div>
+            </Link>
+            
+            <div className="p-4">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-1 truncate">
+                {item.title || `Item #${item.tokenId}`}
+              </h3>
+              
+              {item.author && (
+                <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
+                  by {item.author}
+                </p>
+              )}
+              
+              <p className="text-sm text-gray-600 dark:text-gray-300 h-10 overflow-hidden">
+                {item.description?.substring(0, 60)}
+                {item.description?.length > 60 ? '...' : ''}
+              </p>
+              
+              <div className="flex justify-between items-center mt-3">
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  Token ID: {item.tokenId}
+                </span>
+                
+                <Link 
+                  to={`/collections/${address}/${item.tokenId}?chain=${chain}`}
+                  className="text-blue-500 text-sm hover:text-blue-700"
+                >
+                  View Details
+                </Link>
+              </div>
+              
+              {item.contentURI && (
+                <div className="mt-2">
+                  <a 
+                    href={item.contentURI} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center text-sm text-purple-500 hover:text-purple-700"
+                  >
+                    Read Content
+                    <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                    </svg>
+                  </a>
+                </div>
+              )}
             </div>
-          ))}
-        </div>
-      )}
-      
-      {/* Pagination controls */}
-      <div className="mt-8 flex justify-between items-center">
-        <button
-          onClick={handlePrevPage}
-          disabled={page <= 1}
-          className={`px-4 py-2 rounded ${page > 1 
-            ? 'bg-blue-500 text-white hover:bg-blue-600' 
-            : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
-        >
-          Previous Page
-        </button>
-        
-        <span className="text-gray-600 dark:text-gray-300">
-          Page {page}
-        </span>
-        
-        <button
-          onClick={handleNextPage}
-          disabled={items.length < pageSize}
-          className={`px-4 py-2 rounded ${items.length >= pageSize 
-            ? 'bg-blue-500 text-white hover:bg-blue-600' 
-            : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
-        >
-          Next Page
-        </button>
+          </div>
+        ))}
       </div>
+    )}
+    
+    {/* Pagination controls */}
+    <div className="mt-8 flex justify-between items-center">
+      <button
+        onClick={handlePrevPage}
+        disabled={page <= 1}
+        className={`px-4 py-2 rounded ${page > 1 
+          ? 'bg-blue-500 text-white hover:bg-blue-600' 
+          : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+      >
+        Previous Page
+      </button>
       
-      <div className="mt-8 text-center text-gray-500 text-sm">
-        <p>Powered by PageDAO Registry</p>
-      </div>
+      <span className="text-gray-600 dark:text-gray-300">
+        Page {page}
+      </span>
+      
+      <button
+        onClick={handleNextPage}
+        disabled={items.length < pageSize}
+        className={`px-4 py-2 rounded ${items.length >= pageSize 
+          ? 'bg-blue-500 text-white hover:bg-blue-600' 
+          : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+      >
+        Next Page
+      </button>
     </div>
-  );
+    
+    <div className="mt-8 text-center text-gray-500 text-sm">
+      <p>Powered by PageDAO Registry</p>
+    </div>
+  </div>
+);
 }
 
 export default CollectionDetail;
+
