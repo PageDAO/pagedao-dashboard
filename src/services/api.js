@@ -173,7 +173,37 @@ export const fetchCollectionDetail = async (address, chain, page = 1, pageSize =
 export const fetchBookDetail = async (address, chain, tokenId) => {
   try {
     const bookData = await hubApi.fetchTokenMetadata(address, chain, tokenId);
-    return bookData;
+    
+    // Extract author and other contributors from metadata
+    let additionalData = bookData.additionalData || {};
+    
+    // If metadata is a string (JSON), parse it
+    if (typeof bookData.metadata === 'string') {
+      try {
+        const parsedMetadata = JSON.parse(bookData.metadata);
+        additionalData = { ...additionalData, ...parsedMetadata };
+      } catch (e) {
+        console.error('Error parsing metadata JSON:', e);
+      }
+    } else if (bookData.metadata && typeof bookData.metadata === 'object') {
+      additionalData = { ...additionalData, ...bookData.metadata };
+    }
+    
+    // Look for author in various possible fields
+    const author = 
+      additionalData.author || 
+      additionalData.Artist || 
+      additionalData.artist ||
+      additionalData.creator ||
+      additionalData.Creator;
+    
+    return {
+      ...bookData,
+      additionalData: {
+        ...additionalData,
+        author: author || undefined
+      }
+    };
   } catch (error) {
     console.error('Error fetching book detail:', error);
     return {

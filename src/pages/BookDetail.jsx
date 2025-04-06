@@ -300,6 +300,15 @@ function BookDetail() {
   // Get content URL from various possible field names
   const contentUrl = getContentUrl();
   
+
+  console.log("Book data being rendered:", {
+    title: book.title,
+    author: book.additionalData?.author,
+    creator: book.creator,
+    additionalData: book.additionalData
+  });
+
+  
   return (
     <div className="container mx-auto px-4 py-6">
       <div className="mb-6">
@@ -385,14 +394,44 @@ function BookDetail() {
                 </button>
               </div>
               
-              {/* Author/Creator */}
-              {(book.additionalData?.author || book.creator) && (
-                <div className="mb-4">
+              {/* Author/Creator Section */}
+              <div className="mb-4">
+                {/* Primary Author */}
+                {book.additionalData?.author && (
                   <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-300">
-                    By {book.additionalData?.author || book.creator}
+                    By {book.additionalData.author}
                   </h2>
-                </div>
-              )}
+                )}
+                
+                {/* If no author but we have artist or illustrator */}
+                {!book.additionalData?.author && (book.additionalData?.artist || book.additionalData?.illustrator) && (
+                  <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-300">
+                    By {book.additionalData.artist || book.additionalData.illustrator}
+                  </h2>
+                )}
+                
+                {/* If we have neither author nor artist, but have creator (as last resort) */}
+                {!book.additionalData?.author && !book.additionalData?.artist && !book.additionalData?.illustrator && book.creator && (
+                  <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-300">
+                    Creator: {book.creator}
+                  </h2>
+                )}
+                
+                {/* Additional Contributors */}
+                {(book.additionalData?.artist || book.additionalData?.illustrator || book.additionalData?.editor) && (
+                  <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                    {book.additionalData.artist && book.additionalData.author !== book.additionalData.artist && (
+                      <div>Artist: {book.additionalData.artist}</div>
+                    )}
+                    {book.additionalData.illustrator && book.additionalData.author !== book.additionalData.illustrator && (
+                      <div>Illustrator: {book.additionalData.illustrator}</div>
+                    )}
+                    {book.additionalData.editor && (
+                      <div>Editor: {book.additionalData.editor}</div>
+                    )}
+                  </div>
+                )}
+              </div>
               
               {/* Description */}
               <div className="mb-6">

@@ -5,7 +5,7 @@ export const trackedContracts = [
       chain: 'base',
       address: '0x64E2C384738b9Ca2C1820a00B3C2067B8213640e',
       type: 'alexandria_book',
-      name: 'Alexandria: The Inevitable'
+      name: 'Alexandria: INEVITABLE'
     },
     
     // Ethereum - Mirror publications
