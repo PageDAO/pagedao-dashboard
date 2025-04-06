@@ -1,2 +1,5 @@
 /*
-  Content-Security-Policy: default-src 'self'; connect-src 'self' https://reggie-db.netlify.app https://pagedao-hub-serverless-api.netlify.app; img-src 'self' data: https://ipfs.nftbookbazaar.com https://*.ipfs.dweb.link https://*.ipfs.cf-ipfs.com https://*.ipfs.nftstorage.link https://*.arweave.net https://*.cloudfront.net;
+  Content-Security-Policy: default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; connect-src * 'unsafe-inline'; font-src * data:; frame-src *; img-src * data: blob:; media-src * blob:; object-src *; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline'
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, Authorization
