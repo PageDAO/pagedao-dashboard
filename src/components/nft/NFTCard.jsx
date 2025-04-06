@@ -38,20 +38,20 @@ const NFTCard = ({ collection }) => {
       {/* Card Header with Chain Indicator */}
       <div className="h-1" style={{ backgroundColor: getChainColor(collection.chain) }}></div>
       
-      {/* Image Container - Fixed height with proper book cover handling */}
-      <div className="h-64 bg-gray-100 dark:bg-gray-900 overflow-hidden flex items-center justify-center p-3">
-        <Link 
-          to={`/collections/${collection.contractAddress || collection.address}?chain=${collection.chain}`}
-          className="h-full flex items-center justify-center"
-        >
+      {/* Image Container - Fixed aspect ratio with proper book cover handling */}
+      <Link 
+        to={`/collections/${collection.contractAddress || collection.address}?chain=${collection.chain}`}
+        className="block relative pt-[56.25%] bg-gray-100 dark:bg-gray-900 overflow-hidden"
+      >
+        <div className="absolute inset-0 flex items-center justify-center p-4">
           <img 
             src={imageSource}
             alt={collection.title || collection.name || "NFT Collection"}
-            className="max-h-full w-auto object-contain shadow-md rounded"
+            className="max-h-full max-w-full object-contain"
             onError={() => setImageError(true)}
           />
-        </Link>
-      </div>
+        </div>
+      </Link>
       
       {/* Content Container - Flexible height */}
       <div className="p-4 flex-grow flex flex-col">
@@ -66,7 +66,7 @@ const NFTCard = ({ collection }) => {
         </div>
         
         {/* Title */}
-        <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-2 line-clamp-2">
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-2 overflow-hidden text-ellipsis" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
           {collection.title || collection.name || "Untitled Collection"}
         </h3>
         
@@ -78,7 +78,7 @@ const NFTCard = ({ collection }) => {
         )}
         
         {/* Description - Allow it to grow but limit to 3 lines */}
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 line-clamp-3 flex-grow">
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 overflow-hidden text-ellipsis flex-grow" style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>
           {collection.description || "No description available."}
         </p>
         

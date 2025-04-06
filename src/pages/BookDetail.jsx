@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { fetchBookDetail } from '../services/api';
 import { fetchRegistry } from '../services/registryApiClient';
+import ReadmePopup from '../components/ReadmePopup';
 
 function BookDetail() {
   const { address, tokenId } = useParams();
@@ -12,6 +13,16 @@ function BookDetail() {
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showReadmePopup, setShowReadmePopup] = useState(false);
+  
+  // Define the isReadmeBook function inside the component
+  const isReadmeBook = () => {
+    return book && (
+      (book.chain === 'polygon' && book.contractAddress?.toLowerCase() === '0x931204fb8cea7f7068995dce924f0d76d571df99') ||
+      book.type?.includes('readme') ||
+      book.isReadme === true
+    );
+  };
   
   useEffect(() => {
     let isMounted = true;
@@ -164,23 +175,83 @@ function BookDetail() {
   const getContentUrl = () => {
     if (!book) return null;
     
+    // Helper function to safely parse JSON strings
+    const parseJsonIfString = (data) => {
+      if (typeof data === 'string') {
+        try {
+          return JSON.parse(data);
+        } catch (e) {
+          console.error('Failed to parse JSON string:', e);
+          return null;
+        }
+      }
+      return data;
+    };
+    
+    // Parse metadata and additionalData if they're strings
+    const metadata = parseJsonIfString(book.metadata);
+    const additionalData = parseJsonIfString(book.additionalData);
+    
+    console.log('Parsed metadata:', metadata);
+    console.log('Parsed additionalData:', additionalData);
+    
+    // First check for interactive_url specifically
+    if (book.interactive_url) return book.interactive_url;
+    if (metadata?.interactive_url) return metadata.interactive_url;
+    if (additionalData?.interactive_url) return additionalData.interactive_url;
+    
+    // Then check animation_url
+    if (book.animation_url) return book.animation_url;
+    if (metadata?.animation_url) return metadata.animation_url;
+    if (additionalData?.animation_url) return additionalData.animation_url;
+    
+    // Then check other possible fields
     const possibleFields = [
       'contentURI', 'content_uri', 'fileURI', 'file_uri', 
-      'interactive_url', 'animation_url', 'external_url',
-      'externalUrl', 'content_url', 'contentUrl', 'url'
+      'external_url', 'externalUrl', 'content_url', 'contentUrl', 'url'
     ];
     
     for (const field of possibleFields) {
       if (book[field]) return book[field];
     }
     
-    // Check metadata fields if available
-    if (book.metadata && typeof book.metadata === 'object') {
+    // Check metadata fields
+    if (metadata) {
       for (const field of possibleFields) {
-        if (book.metadata[field]) return book.metadata[field];
+        if (metadata[field]) return metadata[field];
       }
     }
     
+    // Check additionalData fields
+    if (additionalData) {
+      for (const field of possibleFields) {
+        if (additionalData[field]) return additionalData[field];
+      }
+    }
+    
+    // If we still haven't found a URL, try to extract from the description
+    if (book.description) {
+      const urlMatch = book.description.match(/(https?:\/\/[^\s]+)/g);
+      if (urlMatch && urlMatch.length > 0) {
+        console.log('Found URL in description:', urlMatch[0]);
+        return urlMatch[0];
+      }
+    }
+    
+    if (metadata?.description) {
+      const urlMatch = metadata.description.match(/(https?:\/\/[^\s]+)/g);
+      if (urlMatch && urlMatch.length > 0) {
+        console.log('Found URL in metadata description:', urlMatch[0]);
+        return urlMatch[0];
+      }
+    }
+    
+    // Last resort: check if the book has an image URL we can use
+    if (book.imageURI) return book.imageURI;
+    if (book.image) return book.image;
+    if (metadata?.image) return metadata.image;
+    
+    console.log('No content URL found in book data');
     return null;
   };
   
@@ -261,26 +332,27 @@ function BookDetail() {
               
               {/* Action Buttons */}
               <div className="mt-6 space-y-3">
-                {contentUrl && (
-                  <a 
-                    href={contentUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full inline-flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                {/* Only show the Readme button for Readme books, otherwise show Share button */}
+                {isReadmeBook() ? (
+                  <button 
+                    className="w-full px-4 py-2 bg-yellow-400 text-black rounded hover:bg-yellow-500 transition-colors font-medium"
+                    onClick={() => setShowReadmePopup(true)}
                   >
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-                    </svg>
-                    Read Content
-                  </a>
+                    <div className="flex items-center justify-center">
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                      </svg>
+                      Readme
+                    </div>
+                  </button>
+                ) : (
+                  <button 
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    onClick={() => navigator.clipboard.writeText(window.location.href)}
+                  >
+                    Share
+                  </button>
                 )}
-                
-                <button 
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                  onClick={() => navigator.clipboard.writeText(window.location.href)}
-                >
-                  Share
-                </button>
               </div>
             </div>
             
@@ -489,6 +561,13 @@ function BookDetail() {
       <div className="mt-8 text-center text-gray-500 text-sm">
         <p>Powered by PageDAO Registry</p>
       </div>
+      
+      {showReadmePopup && (
+        <ReadmePopup 
+          url={getContentUrl()}
+          onClose={() => setShowReadmePopup(false)}
+        />
+      )}
     </div>
   );
 }
