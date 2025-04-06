@@ -3,6 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { fetchRegistry } from '../services/registryApiClient';
 import NFTCard from '../components/nft/NFTCard';
+import { featuredCollections } from '../config/featuredCollections';
+
+
 
 function ChainCollections() {
   const { chainId } = useParams();
@@ -39,7 +42,7 @@ function ChainCollections() {
     polygon: { 
       name: 'Polygon', 
       color: '#8247E5',
-      description: 'Low-cost publishing featuring Readme Books collection',
+      description: 'The Original Readme Books V1 Collection on Polygon',
       icon: '/images/polygon-logo.svg'
     },
     optimism: { 
@@ -115,9 +118,34 @@ function ChainCollections() {
     );
   }
   
-  // Find featured collection (first one or with featured=true)
-  const featuredCollection = collections.find(c => c.featured) || collections[0];
-  
+  // Add this right after your imports
+  console.log('Featured collections:', featuredCollections);
+
+  // Then add this right before finding the featured collection
+  console.log('Collections to search:', collections.map(c => ({
+    address: c.contractAddress || c.address,
+    name: c.name || c.title
+  })));
+
+  // And update your featured collection finding logic with debugging
+  const featuredCollection = collections.find(c => {
+    // Get the collection address and convert to lowercase
+    const collectionAddress = (c.contractAddress || c.address || '').toLowerCase();
+    console.log(`Checking collection: ${collectionAddress} (${c.name || c.title})`);
+    
+    // Check if this address is in the featuredCollections array
+    const isInFeaturedList = featuredCollections.includes(collectionAddress);
+    console.log(`Is in featured list: ${isInFeaturedList}`);
+    
+    return isInFeaturedList;
+  }) || collections[0];
+
+  console.log('Selected featured collection:', 
+    featuredCollection ? 
+      `${featuredCollection.name || featuredCollection.title} (${featuredCollection.contractAddress || featuredCollection.address})` : 
+      'None found'
+  );
+    
   return (
     <div className="container mx-auto px-4 py-6">
       {/* Back button and page header */}

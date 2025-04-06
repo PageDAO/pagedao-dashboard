@@ -1,6 +1,7 @@
 // src/services/api.js
 import * as hubApi from './hubApiClient';
 import * as registryApi from './registryApiClient';
+import { featuredCollections } from '../config/featuredCollections';
 
 /**
  * Fetch collections with metadata
@@ -19,17 +20,27 @@ export const fetchCollections = async (chain = 'all', limit = 12) => {
     // Format the response to match the expected structure
     return {
       data: {
-        items: limitedCollections.map(collection => ({
-          contractAddress: collection.address,
-          chain: collection.chain,
-          name: collection.name || "Unknown Collection",
-          description: collection.description || "",
-          type: collection.type || 'book',
-          imageURI: collection.image || "",
-          contentURI: collection.url || "",
-          totalSupply: collection.totalSupply || 100,
-          creator: collection.creator || ""
-        }))
+        items: limitedCollections.map(collection => {
+          // Check if this collection is in our featured list
+          const isFeatured = featuredCollections.some(
+            featuredItem => 
+              featuredItem.address.toLowerCase() === (collection.address || '').toLowerCase() &&
+              (chain === 'all' || featuredItem.chain === collection.chain)
+          );
+          
+          return {
+            contractAddress: collection.address,
+            chain: collection.chain,
+            name: collection.name || "Unknown Collection",
+            description: collection.description || "",
+            type: collection.type || 'book',
+            imageURI: collection.image || "",
+            contentURI: collection.url || "",
+            totalSupply: collection.totalSupply || 100,
+            creator: collection.creator || "",
+            featured: isFeatured // Set the featured flag based on our list
+          };
+        })
       }
     };
   } catch (error) {

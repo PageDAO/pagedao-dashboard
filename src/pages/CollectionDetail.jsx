@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { fetchCollectionDetail } from '../services/api';
 import { fetchRegistry } from '../services/registryApiClient';
+import { featuredCollections } from '../config/featuredCollections';
+
 
 function CollectionDetail() {
   const { address } = useParams();
