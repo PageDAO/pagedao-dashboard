@@ -1,8 +1,19 @@
 // src/components/nft/NFTCard.jsx
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 function NFTCard({ collection }) {
+  const navigate = useNavigate();
+  const collectionUrl = `/collections/${collection.contractAddress}?chain=${collection.chain}`;
+  
+  // Handle click on the card (but not on the link)
+  const handleCardClick = (e) => {
+    // Only navigate if the click wasn't on a link
+    if (!e.target.closest('a')) {
+      navigate(collectionUrl);
+    }
+  };
+  
   // Chain-specific styling
   const getChainColor = (chain) => {
     const colors = {
@@ -56,7 +67,10 @@ function NFTCard({ collection }) {
   
   // Create the card content (will be used inside or outside of Link)
   const cardContent = (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
+    <div 
+      className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer"
+      onClick={handleCardClick}
+    >
       <div className="relative pb-[75%] bg-gray-100 dark:bg-gray-700">
         <img 
           src={collection.imageURI || collection.image || '/images/placeholder-cover.png'} 
@@ -93,6 +107,7 @@ function NFTCard({ collection }) {
           <Link 
             to={`/collections/${collection.contractAddress || collection.address}?chain=${collection.chain}`}
             className="inline-flex items-center text-sm text-blue-500 hover:text-blue-700 mr-4"
+            onClick={(e) => e.stopPropagation()} // Prevent the card click from triggering
           >
             View details
             <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

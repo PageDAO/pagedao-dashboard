@@ -1,0 +1,2 @@
+/*
+  Content-Security-Policy: default-src 'self'; img-src 'self' data: https://ipfs.nftbookbazaar.com https://*.ipfs.dweb.link https://*.ipfs.cf-ipfs.com https://*.ipfs.nftstorage.link https://*.arweave.net https://*.cloudfront.net;
