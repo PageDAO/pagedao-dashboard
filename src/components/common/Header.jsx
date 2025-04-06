@@ -19,7 +19,7 @@ function Header() {
     };
 
     fetchPrices();
-    const interval = setInterval(fetchPrices, 60000); // Update every minute
+    const interval = setInterval(fetchPrices, 600000);
     return () => clearInterval(interval);
   }, []);
 
@@ -38,13 +38,19 @@ function Header() {
         ) : prices ? (
           <div className="flex items-center space-x-4">
             <div className="text-sm text-gray-600 dark:text-gray-300">
-              $PAGE Price: <span className="font-semibold text-green-600 dark:text-green-400">${prices.prices.weighted.toFixed(6)}</span>
+              $PAGE Price: <span className="font-semibold text-green-600 dark:text-green-400">
+                ${prices?.data?.weighted?.price?.toFixed(6) || prices?.prices?.weighted?.toFixed(6) || "N/A"}
+              </span>
             </div>
             <div className="text-sm text-gray-600 dark:text-gray-300">
-              ETH: <span className="font-semibold">${prices.ethPrice.toFixed(2)}</span>
+              ETH: <span className="font-semibold">
+                ${prices?.ethPrice?.toFixed(2) || prices?.data?.ethereum?.price?.toFixed(2) || "N/A"}
+              </span>
             </div>
             <div className="text-sm text-gray-600 dark:text-gray-300">
-              TVL: <span className="font-semibold">${prices.tvl.total.toLocaleString()}</span>
+              TVL: <span className="font-semibold">
+                ${prices?.tvl?.total?.toLocaleString() || prices?.data?.tvl?.toLocaleString() || "N/A"}
+              </span>
             </div>
           </div>
         ) : (
