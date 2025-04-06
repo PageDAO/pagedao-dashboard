@@ -22,4 +22,4 @@
     X-XSS-Protection = "1; mode=block"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
-Content-Security-Policy = "default-src 'self'; connect-src 'self' https://pagedao-hub-serverless-api.netlify.app https://reggie-db.netlify.app; img-src 'self' data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;"
+    Content-Security-Policy = "default-src 'self'; connect-src 'self' https://pagedao-hub-serverless-api.netlify.app https://reggie-db.netlify.app; img-src 'self' data: https://ipfs.nftbookbazaar.com https://*.ipfs.dweb.link https://*.ipfs.cf-ipfs.com https://*.ipfs.nftstorage.link https://*.arweave.net https://*.cloudfront.net; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;"
