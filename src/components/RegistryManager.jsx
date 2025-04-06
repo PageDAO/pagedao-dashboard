@@ -2,10 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   fetchRegistry, 
-  addCollection, 
-  removeCollection, 
-  updateCollection 
-} from '../services/registryService';
+  updateRegistry
+} from '../services/registryApiClient';
 
 const RegistryManager = () => {
   const [registry, setRegistry] = useState({});
@@ -95,7 +93,17 @@ const RegistryManager = () => {
     
     try {
       setLoading(true);
-      await addCollection(newCollection.chain, {
+      
+      // Get current registry
+      const currentRegistry = await fetchRegistry();
+      
+      // Ensure the chain exists in the registry
+      if (!currentRegistry[newCollection.chain]) {
+        currentRegistry[newCollection.chain] = [];
+      }
+      
+      // Add the new collection to the chain
+      currentRegistry[newCollection.chain].push({
         address: newCollection.address,
         name: newCollection.name,
         type: newCollection.type,
@@ -103,8 +111,12 @@ const RegistryManager = () => {
         creator: newCollection.creator,
         description: newCollection.description,
         image: newCollection.image,
-        url: newCollection.url
-      }, apiKey);
+        url: newCollection.url,
+        dateAdded: new Date().toISOString()
+      });
+      
+      // Update the registry
+      await updateRegistry(currentRegistry, apiKey);
       
       // Refresh the registry
       const updatedRegistry = await fetchRegistry();
@@ -142,7 +154,22 @@ const RegistryManager = () => {
     if (window.confirm('Are you sure you want to remove this collection?')) {
       try {
         setLoading(true);
-        await removeCollection(chain, address, apiKey);
+        
+        // Get current registry
+        const currentRegistry = await fetchRegistry();
+        
+        // Ensure the chain exists
+        if (!currentRegistry[chain]) {
+          throw new Error(`Chain ${chain} not found in registry`);
+        }
+        
+        // Filter out the collection to remove
+        currentRegistry[chain] = currentRegistry[chain].filter(collection => 
+          collection.address.toLowerCase() !== address.toLowerCase()
+        );
+        
+        // Update the registry
+        await updateRegistry(currentRegistry, apiKey);
         
         // Refresh the registry
         const updatedRegistry = await fetchRegistry();
@@ -373,51 +400,52 @@ const RegistryManager = () => {
             <div className="mb-4">
               <label className="block text-gray-700 dark:text-gray-300 mb-2">Description</label>
               <textarea 
-                name="description" 
-                value={newCollection.description} 
-                onChange={handleInputChange}
-                className="w-full p-2 border rounded"
-                placeholder="Collection description"
-                rows={3}
-              />
-            </div>
-            
-            <div className="mb-4">
-              <label className="block text-gray-700 dark:text-gray-300 mb-2">Image URL</label>
-              <input 
-                type="text" 
-                name="image" 
-                value={newCollection.image} 
-                onChange={handleInputChange}
-                className="w-full p-2 border rounded"
-                placeholder="https://..."
-              />
-            </div>
-            
-            <div className="mb-4">
-              <label className="block text-gray-700 dark:text-gray-300 mb-2">Website URL</label>
-              <input 
-                type="text" 
-                name="url" 
-                value={newCollection.url} 
-                onChange={handleInputChange}
-                className="w-full p-2 border rounded"
-                placeholder="https://..."
-              />
-            </div>
-            
-            <button 
-              type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded"
-              disabled={loading}
-            >
-              {loading ? 'Adding...' : 'Add Collection'}
-            </button>
-          </form>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default RegistryManager;
+                                name="description" 
+                                value={newCollection.description} 
+                                onChange={handleInputChange}
+                                className="w-full p-2 border rounded"
+                                placeholder="Collection description"
+                                rows={3}
+                              />
+                            </div>
+                            
+                            <div className="mb-4">
+                              <label className="block text-gray-700 dark:text-gray-300 mb-2">Image URL</label>
+                              <input 
+                                type="text" 
+                                name="image" 
+                                value={newCollection.image} 
+                                onChange={handleInputChange}
+                                className="w-full p-2 border rounded"
+                                placeholder="https://..."
+                              />
+                            </div>
+                            
+                            <div className="mb-4">
+                              <label className="block text-gray-700 dark:text-gray-300 mb-2">Website URL</label>
+                              <input 
+                                type="text" 
+                                name="url" 
+                                value={newCollection.url} 
+                                onChange={handleInputChange}
+                                className="w-full p-2 border rounded"
+                                placeholder="https://..."
+                              />
+                            </div>
+                            
+                            <button 
+                              type="submit"
+                              className="px-4 py-2 bg-blue-600 text-white rounded"
+                              disabled={loading}
+                            >
+                              {loading ? 'Adding...' : 'Add Collection'}
+                            </button>
+                          </form>
+                        </div>
+                      )}
+                    </div>
+                  );
+                };
+                
+                export default RegistryManager;
+                

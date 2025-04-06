@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { fetchBookDetail } from '../services/api';
-import { fetchRegistry } from '../services/registryService';
+import { fetchRegistry } from '../services/registryApiClient';
 
 function BookDetail() {
   const { address, tokenId } = useParams();

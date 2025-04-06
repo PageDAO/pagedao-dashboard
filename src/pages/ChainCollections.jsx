@@ -1,7 +1,7 @@
 // src/pages/ChainCollections.jsx - Simplified version
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { fetchRegistry } from '../services/registryService';
+import { fetchRegistry } from '../services/registryApiClient';
 import NFTCard from '../components/nft/NFTCard';
 
 function ChainCollections() {

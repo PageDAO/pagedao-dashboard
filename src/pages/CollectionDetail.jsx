@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { fetchCollectionDetail } from '../services/api';
-import { fetchRegistry } from '../services/registryService';
+import { fetchRegistry } from '../services/registryApiClient';
 
 function CollectionDetail() {
   const { address } = useParams();
