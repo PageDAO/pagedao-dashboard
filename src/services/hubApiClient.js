@@ -1,8 +1,8 @@
 // src/services/hubApiClient.js
 import axios from 'axios';
 
-// API base URL from environment variable
-const HUB_API_URL = import.meta.env.VITE_API_URL || 'https://pagedao-hub-serverless-api.netlify.app';
+// Hardcoded Hub API URL - no need for env variables for public URLs
+const HUB_API_URL = 'https://pagedao-hub-serverless-api.netlify.app';
 
 // Create axios instance with default config
 const hubApi = axios.create({

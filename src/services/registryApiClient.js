@@ -1,8 +1,8 @@
 // src/services/registryApiClient.js
 import axios from 'axios';
 
-// Registry API URL from environment variable
-const REGISTRY_API_URL = import.meta.env.VITE_REGISTRY_API_URL || 'https://reggie-db.netlify.app';
+// Hardcoded Registry API URL - no need for env variables for public URLs
+const REGISTRY_API_URL = 'https://reggie-db.netlify.app';
 
 // Create axios instance with default config
 const registryApi = axios.create({
