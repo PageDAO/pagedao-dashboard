@@ -4,6 +4,7 @@ const ReadmePopup = ({ url, onClose }) => {
   const popupRef = useRef(null);
   const iframeRef = useRef(null);
   const [iframeError, setIframeError] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   
   // Log the URL for debugging
   useEffect(() => {
@@ -64,6 +65,12 @@ const ReadmePopup = ({ url, onClose }) => {
       window.open(url, '_blank');
     }
   };
+  
+  useEffect(() => {
+    // Detect mobile devices
+    const mobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    setIsMobile(mobile);
+  }, []);
   
   if (!url) {
     return (
@@ -131,12 +138,12 @@ const ReadmePopup = ({ url, onClose }) => {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75">
       <div 
         ref={popupRef}
-        className="relative bg-white dark:bg-gray-900 rounded-lg shadow-xl w-11/12 h-5/6 max-w-6xl flex flex-col"
+        className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden shadow-xl w-full max-w-4xl mx-4 flex flex-col" style={{ height: '80vh' }}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-xl font-bold text-gray-800 dark:text-white">
-            Readme Book Reader
+            Reader
           </h2>
           <div className="flex items-center">
             {/* Fullscreen button */}
@@ -177,34 +184,55 @@ const ReadmePopup = ({ url, onClose }) => {
         </div>
         
         {/* Content */}
-        <div className="flex-grow overflow-hidden">
-          <iframe 
-            ref={iframeRef}
-            src={formattedUrl} 
-            title="Interactive Content"
-            className="w-full h-full border-0"
-            sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-downloads allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-top-navigation"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-            allowFullScreen={true}
-            onError={() => setIframeError(true)}
-          />
-          
-          {iframeError && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-white dark:bg-gray-900 p-6">
-              <p className="text-gray-700 dark:text-gray-300 mb-4">
-                The content couldn't be displayed in the embedded viewer.
-              </p>
-              <a 
-                href={formattedUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                Open Content in New Tab
-              </a>
-            </div>
-          )}
-        </div>
+        {isMobile ? (
+          // Mobile view - show a message and direct link
+          <div className="flex-grow flex flex-col items-center justify-center p-6 text-center">
+            <svg className="w-16 h-16 text-blue-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+            </svg>
+            <h3 className="text-xl font-semibold mb-2">Mobile Reader</h3>
+            <p className="mb-6 text-gray-600">For the best reading experience on mobile devices, we recommend opening the content directly in your browser.</p>
+            <a 
+              href={url} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium text-lg shadow-md hover:bg-blue-700"
+            >
+              Open Content
+            </a>
+          </div>
+        ) : (
+          // Desktop view - show iframe
+          <div className="flex-grow relative">
+            <iframe 
+              ref={iframeRef}
+              src={formattedUrl} 
+              title="Interactive Content"
+              className="absolute inset-0 w-full h-full border-0"
+              sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-downloads allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-top-navigation"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+              allowFullScreen={true}
+              referrerPolicy="no-referrer"
+              onError={() => setIframeError(true)}
+            />
+            
+            {iframeError && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-white dark:bg-gray-900 p-6">
+                <p className="text-gray-700 dark:text-gray-300 mb-4">
+                  The content couldn't be displayed in the embedded viewer.
+                </p>
+                <a 
+                  href={formattedUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Open Content in New Tab
+                </a>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
