@@ -28,7 +28,11 @@ const registryApi = axios.create({
  */
 export const fetchRegistry = async () => {
   try {
-    const response = await registryApi.get('/registry');
+    // Use the correct registry API URL
+    const REGISTRY_API_URL = import.meta.env.VITE_REGISTRY_API_URL || 'https://reggie-db.netlify.app';
+    
+    // Make sure to use the correct path - based on your error, it should be:
+    const response = await axios.get(`${REGISTRY_API_URL}/.netlify/functions/registry`);
     return response.data;
   } catch (error) {
     console.error('Error fetching registry:', error);
